@@ -1,5 +1,6 @@
 // RiskDesk backend: live Coinbase quotes + local paper ledger -> small JSON state for the glasses.
-//   GET  /api/state    one snapshot
+//   GET  /api/state    one snapshot (includes `risk`: per held product, stop / take distance and money at
+//                      each, 24 h range and a 15-minute close series for the chart)
 //   GET  /api/stream   Server-Sent Events: on every price change (<= 1/s), every action change,
 //                      and once per second of an undo countdown
 //   POST /api/preview  {kind: 'halve'|'close'|'stop'|'take', product} or {kind: 'cancelAll'} -> priced proposal, nothing sent
@@ -24,6 +25,7 @@ import { utcDayStart } from './ledger.ts'
 import { priceAt } from './candles.ts'
 import { DEMO_SEED, resolveSeed, FillStore, JsonStore, buildLedger } from './portfolio.ts'
 import { buildState } from './state.ts'
+import { SeriesCache } from './risk.ts'
 import { ActionDesk, coinbaseOrders, SANDBOX, ACTION_KINDS, type ActionKind, type ActionState } from './actions.ts'
 import { PaperOrderBook, STOP_PCT, TAKE_PCT, type Resting } from './orders.ts'
 import { PriceAlerts, type Alert } from './alerts.ts'
@@ -70,6 +72,11 @@ async function main() {
   setInterval(() => { if (utcDayStart(Date.now()) !== dayStart) refreshDayOpen().catch((e) => console.error(e)) }, 60_000)
 
   const feed = new TickerFeed({ products: PRODUCTS })
+  // 24 h chart for the risk page: public 15-minute candles, refreshed every 5 min for held products.
+  const series = new SeriesCache()
+  const refreshSeries = () => Promise.all(ledger.products().filter((p) => PRODUCTS.includes(p)).map((p) => series.refresh(p, Date.now())))
+  await refreshSeries()
+  setInterval(() => { void refreshSeries() }, 60_000)
   const clients = new Set<ServerResponse>()
   let current: ActionState | null = null
   let finishedAt = 0
@@ -82,7 +89,7 @@ async function main() {
   const liveNotice = () => (notice && Date.now() < notice.until ? { id: notice.id, en: notice.en, zh: notice.zh, heard: notice.heard, undo: notice.undo } : null)
   const state = () => buildState(feed.snapshot(), ledger, PRODUCTS, dayStart, dayOpen, Date.now(), {
     book, action: visible(), venue: (process.env.ORDERS_BASE ?? SANDBOX) === SANDBOX ? 'sandbox' : 'production',
-    alerts: alerts.size, voice: voiceView(), notice: liveNotice(),
+    alerts: alerts.size, voice: voiceView(), notice: liveNotice(), series: (p) => series.get(p),
   })
   const showNotice = (en: string, zh: string, heard: string | null, undo: string | null = null) => {
     notice = { id: randomUUID(), en, zh, heard, undo, until: Date.now() + NOTICE_MS }

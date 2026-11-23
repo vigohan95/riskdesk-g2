@@ -15,11 +15,14 @@ import {
   MenuItemProperty,
   OsEventTypeList,
   AudioInputSource,
+  ImageContainerProperty,
+  ImageRawDataUpdate,
 } from '@evenrealities/even_hub_sdk'
 import {
   pnlPage, confirmPage, undoPage, resultPage, voicePage, noticePage, pageKind, menuItems, menuAction, MENU_LANG, overflows, PAD,
   type DeskState, type Lang, type Page, type PageKind, type Text,
 } from './layout.ts'
+import { riskPage, chartPixels, chartKey, CHART, type RiskView } from './risk.ts'
 
 const params = new URLSearchParams(location.search)
 const SERVER = params.get('server') ?? localStorage.getItem('riskdesk.server') ?? 'http://127.0.0.1:8787'
@@ -38,6 +41,7 @@ const bridge = await waitForEvenAppBridge()
 const menu = () => new MenuContainerProperty({ menuItems: menuItems(SYMS, lang).map((m) => new MenuItemProperty(m)) })
 let shown: Page = pnlPage(null, lang)
 let shownKind: PageKind = 'pnl'
+let shownKey = 'pnl'
 let shownLang: Lang = lang
 await bridge.createStartUpPageContainer(new CreateStartUpPageContainer({ containerTotalNum: shown.texts.length, textObject: shown.texts.map(toProp), menuObject: menu() }))
 console.log('RISKDESK_READY', SERVER)
@@ -48,18 +52,51 @@ let offline = false
 let note: { text: string; until: number } | null = null
 let busy = false
 let dirty = false
+/** Risk page open on state.risk[riskIdx] (null = positions page). Orders, voice and notices still take over. */
+let riskIdx: number | null = null
+let shownChart = ''
+let chartSentAt = 0
+/** Re-send the chart at most this often while the page stays open (every send costs ~100 ms and glasses memory). */
+const CHART_MIN_MS = 15_000
 
-function wanted(): { kind: PageKind; page: Page } {
-  if (note && Date.now() < note.until) return { kind: 'result', page: resultPage(null, lang, note.text) }
+/** 8-bit grey pixels -> PNG bytes via a canvas (the host converts PNG to 4-bit grey). */
+function pngOf(v: RiskView): number[] {
+  const c = document.createElement('canvas')
+  c.width = CHART.w; c.height = CHART.h
+  const ctx = c.getContext('2d')!
+  const img = ctx.createImageData(CHART.w, CHART.h)
+  const g = chartPixels(v)
+  for (let k = 0; k < g.length; k++) { img.data[4 * k] = img.data[4 * k + 1] = img.data[4 * k + 2] = g[k]; img.data[4 * k + 3] = 255 }
+  ctx.putImageData(img, 0, 0)
+  const bin = atob(c.toDataURL('image/png').split(',')[1])
+  return Array.from(bin, (ch) => ch.charCodeAt(0))
+}
+async function sendChart(v: RiskView) {
+  const t0 = performance.now()
+  const res = await bridge.updateImageRawData(new ImageRawDataUpdate({ containerID: CHART.id, containerName: CHART.name, imageData: pngOf(v) }))
+  shownChart = chartKey(v)
+  chartSentAt = Date.now()
+  console.log('CHART', v.sym, String(res), `${Math.round(performance.now() - t0)} ms`)
+}
+
+function wanted(): { kind: PageKind; page: Page; chart?: RiskView | null; key: string } {
+  if (note && Date.now() < note.until) return { kind: 'result', page: resultPage(null, lang, note.text), key: 'result' }
   note = null
   const kind = pageKind(latest)
   const v = latest?.action ?? null
-  if (kind === 'confirm') return { kind, page: confirmPage(v!, lang) }
-  if (kind === 'undo') return { kind, page: undoPage(v!, lang) }
-  if (kind === 'result') return { kind, page: resultPage(v, lang) }
-  if (kind === 'voice') return { kind, page: voicePage(latest!.voice!, lang) }
-  if (kind === 'notice') return { kind, page: noticePage(latest!.notice!, lang) }
-  return { kind, page: pnlPage(latest, lang, offline) }
+  if (kind === 'confirm') return { kind, page: confirmPage(v!, lang), key: kind }
+  if (kind === 'undo') return { kind, page: undoPage(v!, lang), key: kind }
+  if (kind === 'result') return { kind, page: resultPage(v, lang), key: kind }
+  if (kind === 'voice') return { kind, page: voicePage(latest!.voice!, lang), key: kind }
+  if (kind === 'notice') return { kind, page: noticePage(latest!.notice!, lang), key: kind }
+  if (riskIdx !== null && !offline) {
+    const risk = latest?.risk ?? []
+    // A position closed while its page was open: fall back to the last one, or to "nothing at risk".
+    if (riskIdx >= risk.length) riskIdx = Math.max(0, risk.length - 1)
+    const page = riskPage(risk, riskIdx, lang)
+    return { kind: 'risk', page, chart: page.chart, key: `risk:${page.chart?.product ?? 'none'}` }
+  }
+  return { kind, page: pnlPage(latest, lang, offline), key: kind }
 }
 
 async function draw() {
@@ -68,27 +105,32 @@ async function draw() {
   try {
     do {
       dirty = false
-      const { kind, page: next } = wanted()
+      const { kind, page: next, chart, key } = wanted()
       const bad = overflows(next)
       if (bad.length) console.warn('LAYOUT_OVERFLOW', bad.join(' | '))
-      if (kind !== shownKind || (kind === 'pnl' && lang !== shownLang)) {
+      if (key !== shownKey || (kind === 'pnl' && lang !== shownLang)) {
         // Different page (or the menu labels changed language): rebuild. Only the PnL page carries the menu,
         // so the menu cannot open on top of a confirm or undo page.
         await bridge.rebuildPageContainer(new RebuildPageContainer({
-          containerTotalNum: next.texts.length,
+          containerTotalNum: next.texts.length + (chart ? 1 : 0),
           textObject: next.texts.map(toProp),
+          ...(chart ? { imageObject: [new ImageContainerProperty({ xPosition: CHART.x, yPosition: CHART.y, width: CHART.w, height: CHART.h, containerID: CHART.id, containerName: CHART.name })] } : {}),
           ...(kind === 'pnl' ? { menuObject: menu() } : {}),
         }))
-        console.log('PAGE', kind, lang)
+        console.log('PAGE', key, lang)
+        // A rebuilt image container starts empty: draw the chart right away.
+        if (chart) await sendChart(chart)
       } else {
         for (const t of next.texts) {
           const old = shown.texts.find((o) => o.id === t.id)
           if (old && old.content === t.content && old.color === t.color) continue
           await bridge.textContainerUpgrade(new TextContainerUpgrade({ containerID: t.id, containerName: t.name, content: t.content, textColor: t.color }))
         }
+        if (chart && chartKey(chart) !== shownChart && Date.now() - chartSentAt > CHART_MIN_MS) await sendChart(chart)
       }
       shown = next
       shownKind = kind
+      shownKey = key
       shownLang = lang
     } while (dirty)
   } finally {
@@ -179,6 +221,8 @@ function connect() {
 connect()
 
 // Input:
+//   PnL page     tap = risk page (one held product per page: 24 h chart with entry / stop / take, money at stop)
+//   risk page    tap = next product, after the last one back to positions; double-tap = positions
 //   PnL page     context menu -> Halve / Close / Stop-loss / Take-profit <sym>, Cancel all orders, or switch language;
 //                double-tap also switches language
 //   confirm page tap = confirm (arms the 5 s undo window), double-tap = back
@@ -203,7 +247,7 @@ bridge.onEvenHubEvent((e) => {
   const isClick = type === OsEventTypeList.CLICK_EVENT || (type === undefined && !!(e.textEvent || e.sysEvent))
   if (type === OsEventTypeList.LONG_PRESS_EVENT) {
     // Voice starts from the positions page or over a notice; never on top of a confirm / undo page.
-    if (kind === 'pnl' || kind === 'notice') void startVoice()
+    if (kind === 'pnl' || kind === 'notice' || kind === 'risk') void startVoice()
     return
   }
   if (type === OsEventTypeList.LONG_PRESS_RELEASE_EVENT) { void stopVoice(); return }
@@ -215,6 +259,8 @@ bridge.onEvenHubEvent((e) => {
     }
     if (kind === 'confirm' && v) post('/api/confirm', { id: v.id }).catch(refuse)
     else if (kind === 'undo' && v && v.status === 'armed') post('/api/undo', { id: v.id }).catch(refuse)
+    else if (kind === 'pnl' && latest?.risk?.length) { riskIdx = 0; void draw() }
+    else if (kind === 'risk') { riskIdx = riskIdx !== null && riskIdx + 1 < (latest?.risk?.length ?? 0) ? riskIdx + 1 : null; void draw() }
     else if (kind === 'result') {
       if (note) { note = null; void draw() }
       else if (v) post('/api/dismiss', { id: v.id }).catch(refuse)
@@ -222,6 +268,7 @@ bridge.onEvenHubEvent((e) => {
   } else if (type === OsEventTypeList.DOUBLE_CLICK_EVENT) {
     if (kind === 'confirm' && v) post('/api/undo', { id: v.id }).then(() => post('/api/dismiss', { id: v.id })).catch(refuse)
     else if (kind === 'pnl') toggleLang()
+    else if (kind === 'risk') { riskIdx = null; void draw() }
   }
 })
 

@@ -4,6 +4,7 @@ import type { FeedSnapshot } from './feed.ts'
 import type { PaperLedger } from './ledger.ts'
 import type { ActionState, ActionKind } from './actions.ts'
 import type { PaperOrderBook } from './orders.ts'
+import { riskView, type Candle, type RiskView } from './risk.ts'
 
 export type Row = {
   product: string
@@ -29,6 +30,8 @@ export type DeskState = {
   voice: VoiceView | null
   /** A short message that is not an order: alert set or hit, or why a voice command did nothing. */
   notice: Notice | null
+  /** One entry per held product (in PRODUCTS order): the risk page. */
+  risk: RiskView[]
 }
 export type VoiceView = { status: 'listening' | 'thinking'; lang: 'en' | 'zh'; seconds: number }
 /** undo: id of the alert this notice just set; a tap on the page removes it again. */
@@ -96,7 +99,7 @@ export function buildState(
   dayStart: number,
   dayOpen: Record<string, number>,
   now: number,
-  extra: { book?: PaperOrderBook; alerts?: number; action?: ActionState | null; venue?: ActionView['venue']; voice?: VoiceView | null; notice?: Notice | null } = {},
+  extra: { book?: PaperOrderBook; alerts?: number; action?: ActionState | null; venue?: ActionView['venue']; voice?: VoiceView | null; notice?: Notice | null; series?: (product: string) => Candle[] } = {},
 ): DeskState {
   const quotes: Record<string, { bid: number; ask: number }> = {}
   for (const [p, t] of Object.entries(snap.ticks)) quotes[p] = { bid: t.bid, ask: t.ask }
@@ -117,6 +120,18 @@ export function buildState(
       take: extra.book?.find(p, 'take')?.trigger ?? null,
     })
   }
+  const risk: RiskView[] = []
+  if (snap.status === 'live') {
+    // Risk numbers are only shown on a live feed: a frozen price would make every distance wrong.
+    for (const r of rows) {
+      const tk = snap.ticks[r.product]
+      if (!r.qty || r.avg === null || !tk) continue
+      risk.push(riskView({
+        product: r.product, qty: r.qty, avg: r.avg, bid: tk.bid, ask: tk.ask, price: tk.price,
+        stop: r.stop, take: r.take, feeRate: ledger.feeRate, series: extra.series?.(r.product) ?? [], now,
+      }))
+    }
+  }
   let day: DeskState['day'] = { pnl: null, pct: null }
   const held = ledger.products()
   // Only compute day PnL when every held product has a live quote; otherwise show nothing rather than a wrong number.
@@ -136,5 +151,6 @@ export function buildState(
     action: actionView(extra.action ?? null, now, extra.venue),
     voice: extra.voice ?? null,
     notice: extra.notice ?? null,
+    risk,
   }
 }

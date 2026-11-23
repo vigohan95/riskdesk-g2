@@ -10,6 +10,7 @@
 // - brightness (textColor 0-4) is the only emphasis on a monochrome panel
 
 import { getTextWidth, pxTruncate } from '@evenrealities/pretext'
+import type { RiskView } from './risk.ts'
 
 export const W = 576
 export const H = 288
@@ -36,6 +37,8 @@ export type DeskState = {
   action: ActionView | null
   voice?: { status: 'listening' | 'thinking'; lang: Lang; seconds: number } | null
   notice?: { id: string; en: string; zh: string; heard: string | null; undo: string | null } | null
+  /** per held product, live feed only (server/src/risk.ts) */
+  risk?: RiskView[]
 }
 export type ActionView = {
   id: string
@@ -62,7 +65,7 @@ export type ActionView = {
   far?: boolean
 }
 export type ActionKind = 'halve' | 'close' | 'stop' | 'take' | 'cancelAll'
-export type PageKind = 'pnl' | 'confirm' | 'undo' | 'result' | 'voice' | 'notice'
+export type PageKind = 'pnl' | 'confirm' | 'undo' | 'result' | 'voice' | 'notice' | 'risk'
 /** An order in flight always wins; then a recording in progress; then a short notice; else positions. */
 export function pageKind(s: DeskState | null): PageKind {
   switch (s?.action?.status) {
@@ -127,8 +130,8 @@ export function alignCol(xs: string[], w: number): string[] {
 const col = (xs: string[], w: number) => alignCol(xs, w).join('\n')
 
 const L = {
-  en: { stopAt: (px: string, d: string) => `stop ${px} (${d}%)`, today: 'Today', na: '—', live: 'feed ● live', stale: (s: number) => `feed ○ STALE ${s}s · prices frozen`, connecting: 'feed ○ connecting…', offline: 'backend offline · retrying', open: (n: number) => `${n} open`, alerts: (n: number) => `${n} alert${n === 1 ? '' : 's'}`, flat: 'flat', old: 'old', worst: 'Worst', afterFees: 'after fees, if closed now' },
-  zh: { stopAt: (px: string, d: string) => `止损 ${px}（${d}%）`, today: '今日', na: '—', live: '行情 ● 实时', stale: (s: number) => `行情 ○ 中断 ${s} 秒 · 价格已冻结`, connecting: '行情 ○ 连接中…', offline: '后端离线 · 重试中', open: (n: number) => `挂单 ${n}`, alerts: (n: number) => `提醒 ${n}`, flat: '空仓', old: '旧价', worst: '最差', afterFees: '扣费后，按现在平仓' },
+  en: { stopAt: (px: string, d: string) => `stop ${px} (${d}%)`, today: 'Today', na: '—', live: 'feed ● live', stale: (s: number) => `feed ○ STALE ${s}s · prices frozen`, connecting: 'feed ○ connecting…', offline: 'backend offline · retrying', open: (n: number) => `${n} open`, alerts: (n: number) => `${n} alert${n === 1 ? '' : 's'}`, flat: 'flat', old: 'old', worst: 'Worst', afterFees: 'after fees, if closed now', riskTap: 'tap = risk' },
+  zh: { stopAt: (px: string, d: string) => `止损 ${px}（${d}%）`, today: '今日', na: '—', live: '行情 ● 实时', stale: (s: number) => `行情 ○ 中断 ${s} 秒 · 价格已冻结`, connecting: '行情 ○ 连接中…', offline: '后端离线 · 重试中', open: (n: number) => `挂单 ${n}`, alerts: (n: number) => `提醒 ${n}`, flat: '空仓', old: '旧价', worst: '最差', afterFees: '扣费后，按现在平仓', riskTap: '单击 = 风险' },
 }
 
 /** PnL page: header, 4 columns (symbol / price / 24h / position), worst-position line, footer. */
@@ -158,7 +161,7 @@ export function pnlPage(s: DeskState | null, lang: Lang, offline = false): Page 
   if (offline) foot = t.offline
   else if (!s || s.feed.status === 'connecting') foot = t.connecting
   else if (s.feed.status === 'stale') foot = t.stale(Math.round((s.feed.ageMs ?? 0) / 1000))
-  else foot = `${t.open(s.openOrders)} · ${t.alerts(s.alerts)} · ${t.live}`
+  else foot = `${t.open(s.openOrders)} · ${t.alerts(s.alerts)} · ${t.live}${s.risk?.length ? ` · ${t.riskTap}` : ''}`
   const h = boxH(MAX_ROWS)
   const y = 52
   const dataColor = live ? 3 : 1 // dim everything that could be a frozen price
@@ -190,7 +193,7 @@ export function overflows(p: Page): string[] {
 // Action pages. One question per page, the money number is the brightest line, and the only
 // event-capture container is the footer, which always says what a tap does on this page.
 
-const pxs = (x: number) => fmtNum(x, priceDigits(x))
+export const pxs = (x: number) => fmtNum(x, priceDigits(x))
 const pct = (v: ActionView) => signed(((v.trigger! - v.refPrice!) / v.refPrice!) * 100, 1)
 const isResting = (v: ActionView) => v.kind === 'stop' || v.kind === 'take'
 
@@ -267,7 +270,7 @@ export function dots(remainMs: number, total = 5): string {
   return '●'.repeat(n) + '○'.repeat(total - n)
 }
 
-const box = (id: number, name: string, y: number, content: string, color: number, extra: Partial<Text> = {}): Text =>
+export const box = (id: number, name: string, y: number, content: string, color: number, extra: Partial<Text> = {}): Text =>
   ({ id, name, x: 0, y, w: W, h: boxH(1), content: pxTruncate(content, W - 2 * PAD), color, ...extra })
 
 /** Voice: what was heard, and a warning when the spoken price is far from the market. */

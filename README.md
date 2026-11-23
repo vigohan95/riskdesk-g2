@@ -6,7 +6,7 @@ Heads Up: Even Realities G2 hackathon, track 03 Exchanges & Stocks (Coinbase).
 
 ![PnL page, live Coinbase prices](docs/shots/day1_pnl_en.png)
 
-## What works today (Day 1-3b)
+## What works today (Day 1-4a)
 
 - **Live Coinbase prices** over the public Advanced Trade WebSocket (`ticker` + `heartbeats`, no API key).
   The backend sends the glasses at most one update per second, and only when a number on screen would change.
@@ -166,6 +166,36 @@ a different coin, direction, kind or order price than the one spoken. Three aler
 and a one-tap remove. With the shipping settings, 32 of 34 actionable Chinese commands and 31 of 34 English ones
 give exactly the plan the original sentence gives.
 
+### Risk page (Day 4a)
+
+Tap the positions page (its footer says `tap = risk` whenever something is held) to get one page per position:
+where the stop sits, what it costs if it fires, and how it compares with what the market actually did in the last
+24 hours. Tap again for the next position, double-tap to go back. Voice still works from this page.
+
+| BTC: stop and take-profit set | ETH: no stop |
+|---|---|
+| ![btc](docs/shots/day4_risk_btc_en.png) | ![eth](docs/shots/day4_risk_eth_en.png) |
+| ![btc zh](docs/shots/day4_risk_btc_zh.png) | ![eth zh](docs/shots/day4_risk_eth_zh.png) |
+
+- **Chart** (left, an image container at the SDK's 288x144 maximum): the last 24 h of Coinbase's public 15-minute
+  candles plus the live price (the square). Dashed levels are tagged **S** stop (short dashes, brightest),
+  **E** average entry (long dashes), **T** take-profit (dotted). A level too far away to fit without flattening the
+  price line is pinned to the top or bottom edge in a sparse pattern, meaning "off the chart that way".
+  The chart is drawn as grey pixels in `app/src/risk.ts`, encoded to PNG through a canvas, and re-sent only when it
+  would look different (at most every 15 s; each send costs ~100 ms on the glasses).
+- **Money** (right): PnL now (after the exit fee), stop and take-profit with their distance from the exit price,
+  and **at stop**: the whole position's PnL if the stop fills at its trigger, fee included.
+- **The line under the chart** says how the stop compares with the last 24 h: how far below the 24 h low it is
+  (above the high for a short) and how much more is lost from here if it is hit. If the stop is *inside* the last
+  24 h range, the last day's moves alone would have hit it, and the line is drawn at full brightness. With no stop,
+  it shows what the last 24 h range was worth on this position, and where in the menu to set one.
+- All of it is computed by the server (`server/src/risk.ts`, same fee and exit-price conventions as the ledger) and
+  only sent while the feed is live: no distance is ever measured from a frozen price.
+
+Coinbase's futures data (expiry, funding, margin rates) is also readable without a key
+(`/api/v3/brokerage/market/products?product_type=FUTURE`), but the demo portfolio holds spot, so the page shows
+nothing about contracts it does not hold.
+
 ## Run it
 
 Needs Node 22.18+ (TypeScript runs natively, the backend has zero dependencies).
@@ -181,7 +211,7 @@ npx evenhub-simulator http://127.0.0.1:5173/
 Voice in the simulator (no mic): start the backend with `DEV_INJECT=1`, long-press in the simulator, then
 `curl -X POST --data-binary @command.wav http://127.0.0.1:8787/api/dev/inject` (16 kHz mono 16-bit WAV) and release.
 
-Tests: `cd server && npm test` (ledger, feed, actions, resting orders, voice parser and plans: 56 tests) and `cd app && npm test` (layout, pages, menu, voice pages: 22 tests).
+Tests: `cd server && npm test` (ledger, feed, actions, resting orders, voice parser and plans, risk numbers: 63 tests) and `cd app && npm test` (layout, pages, menu, voice pages, risk page and chart: 29 tests).
 
 The demo portfolio is stored in `server/data/fills.json` (resting orders in `orders.json`, alerts in `alerts.json`); delete them to re-seed.
 
@@ -215,7 +245,7 @@ none of that pre-hackathon spike code is used here. Written with AI assistance (
 
 1. ~~Confirm page + 5-second undo + sandbox orders for halve / close~~ (done Day 2); ~~cancel all, stop, take-profit~~ (Day 2b); ~~price alerts~~ (Day 3b).
 2. Hold-to-talk voice commands (local faster-whisper) that only ever produce a confirm page: ~~parser + 108-clip regression~~ (Day 3a); ~~mic -> STT service -> confirm page, price sanity checks, alerts~~ (Day 3b).
-3. Risk page: distance to stop / expiry for Coinbase futures, 24h sparkline.
+3. ~~Risk page: distance to stop, money at stop, 24 h chart with levels~~ (Day 4a); futures expiry / funding only if a futures position is added.
 4. Demo video.
 
 ## License
