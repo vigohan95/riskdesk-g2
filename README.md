@@ -6,7 +6,7 @@ Heads Up: Even Realities G2 hackathon, track 03 Exchanges & Stocks (Coinbase).
 
 ![PnL page, live Coinbase prices](docs/shots/day1_pnl_en.png)
 
-## What works today (Day 1-2)
+## What works today (Day 1-3a)
 
 - **Live Coinbase prices** over the public Advanced Trade WebSocket (`ticker` + `heartbeats`, no API key).
   The backend sends the glasses at most one update per second, and only when a number on screen would change.
@@ -110,6 +110,27 @@ action 2e5017e7 stop BTC-USD: filled
 In an earlier run the stop was at 64,306.64 and the fill was booked at 64,310.63: the bid crossed the trigger and
 bounced back during the sandbox round trip. The ledger keeps the execution-time price, not the trigger.
 
+### Voice command parser (Day 3, first part)
+
+`server/src/command.ts` turns a faster-whisper transcript (Chinese or English) into an intent, a coin and prices.
+It never sends anything on its own: a parsed command can only open the same confirm page the menu opens.
+Design rule: a wrong *different write* (for example a bracket heard as a lone stop) is the one error that is not
+allowed; when half a sentence is misheard the parser answers `unknown` and the glasses ask you to say it again.
+
+Tested on 108 spoken commands (`server/test/fixtures/voice-108.json`, made on 2026-11-21 before the hackathon:
+Windows TTS at 16 kHz, fed in 100 ms chunks like the glasses mic, transcribed by faster-whisper int8 on CPU;
+24 of them are a held-out set that was never looked at while writing the rules):
+
+| Setting (what ships in bold) | right first time | pick the coin on the confirm page | asked to repeat | visible mistake on confirm page | dangerous |
+|---|---|---|---|---|---|
+| **Chinese, small + domain prompt** (54 clips) | 51 | 1 | 1 | 1 | **0** |
+| **English, base + domain prompt** (54 clips) | 48 | 5 | 0 | 1 | **0** |
+| all 8 model / prompt settings (312 clips) | | | | | **0** |
+
+All 108 reference sentences parse exactly. Whisper output it copes with: `六万五` / `6万5` / `5,9500` / `6萬`
+(traditional), misheard coins (`以太房`, `earth`), "fourteen fifty" = 1,450, "sixteen eighty point five", "60k",
+"cell" for "sell".
+
 ## Run it
 
 Needs Node 22.18+ (TypeScript runs natively, the backend has zero dependencies).
@@ -154,7 +175,7 @@ none of that pre-hackathon spike code is used here. Written with AI assistance (
 ## Roadmap for the week
 
 1. ~~Confirm page + 5-second undo + sandbox orders for halve / close~~ (done Day 2); ~~cancel all, stop, take-profit~~ (Day 2b); next: price alerts.
-2. Hold-to-talk voice commands (local faster-whisper) that only ever produce a confirm page.
+2. Hold-to-talk voice commands (local faster-whisper) that only ever produce a confirm page: ~~parser + 108-clip regression~~ (Day 3a); next: mic -> STT service -> confirm page, price sanity check against the live price.
 3. Risk page: distance to stop / expiry for Coinbase futures, 24h sparkline.
 4. Demo video.
 

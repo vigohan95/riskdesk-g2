@@ -1,0 +1,3133 @@
+{
+ "note": "Generated 2026-11-21, before the hackathon code start: commands synthesised with Windows TTS (16 kHz mono), fed in 100 ms chunks like the glasses mic, transcribed by faster-whisper (int8, CPU, beam 1). prompt=true means the domain initial_prompt was used. set=heldout was never looked at while writing the parser rules.",
+ "items": [
+  {
+   "id": "z01",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "BTC跌破六万提醒我",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "BTC",
+    "nums": [
+     60000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "BTC跌破6萬提醒我。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "BTC、跌破6万提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "BTC跌破60,000提醒我"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "BTC 跌破 6 万提醒我。"
+    }
+   ]
+  },
+  {
+   "id": "z02",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "比特币涨到六万五提醒我",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "BTC",
+    "nums": [
+     65000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "比特幣漲到6萬5提醒我。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币涨到6500提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "比特幣漲到65000提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币涨到65000提醒我。"
+    }
+   ]
+  },
+  {
+   "id": "z03",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "把以太坊减半",
+   "expect": {
+    "intent": "halve",
+    "sym": "ETH",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "把益太防減半。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "把以太坊减半。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "把以太坊减半"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "把以太坊减半。"
+    }
+   ]
+  },
+  {
+   "id": "z04",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "撤掉所有挂单",
+   "expect": {
+    "intent": "cancelAll",
+    "sym": null,
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "撤掉所有掛單"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "撤掉所有挂单。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "撤掉所有掛單"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "撤掉所有挂单。"
+    }
+   ]
+  },
+  {
+   "id": "z05",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "比特币止损设在五万九千五",
+   "expect": {
+    "intent": "stop",
+    "sym": "BTC",
+    "nums": [
+     59500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "比特幣只损射在59,500"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币只损设在5,9500。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "比特幣指損失在59,500"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币止损涉在59500。"
+    }
+   ]
+  },
+  {
+   "id": "z06",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "以太坊止盈三千二",
+   "expect": {
+    "intent": "take",
+    "sym": "ETH",
+    "nums": [
+     3200.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "以太房子贏3,200。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊指盈3000、2。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "以太坊指迎3200"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊止盈3200。"
+    }
+   ]
+  },
+  {
+   "id": "z07",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "平掉比特币仓位",
+   "expect": {
+    "intent": "close",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "評調比特比倡位。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "平调比特币倡位。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "平調比特幣倉位"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "平调比特币仓位。"
+    }
+   ]
+  },
+  {
+   "id": "z08",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "卖出零点零一个比特币",
+   "expect": {
+    "intent": "sell",
+    "sym": "BTC",
+    "nums": [
+     0.01
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "賣出0.01個比特幣"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "卖出0.01个比特币。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "卖出0.01個比特幣"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "卖出0.01个比特币。"
+    }
+   ]
+  },
+  {
+   "id": "z09",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "比特币跌破六万零五百提醒我",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "BTC",
+    "nums": [
+     60500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "比特幣跌破6500T型物"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币跌破6500T行我。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "比特幣跌破60500T型臥"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币跌破60500提醒我。"
+    }
+   ]
+  },
+  {
+   "id": "z10",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "以太坊涨到两千八百五提醒我",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "ETH",
+    "nums": [
+     2850.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "以太房長到28005T醒我。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊涨到28005T醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "以太坊長到2850堤形物。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊长到2850提醒我。"
+    }
+   ]
+  },
+  {
+   "id": "z11",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "比特币止损六万一，止盈六万四",
+   "expect": {
+    "intent": "bracket",
+    "sym": "BTC",
+    "nums": [
+     61000.0,
+     64000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "比特幣只算6萬1,只贏6萬4"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币只损6万1,止盈6万4。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "比特币指损6万1,指赢6万4。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币止损6万1,止盈6万4。"
+    }
+   ]
+  },
+  {
+   "id": "z12",
+   "lang": "zh",
+   "set": "dev",
+   "ref": "买入零点五个以太坊",
+   "expect": {
+    "intent": "buy",
+    "sym": "ETH",
+    "nums": [
+     0.5
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "买入0.5个以太房"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "买入0.5个,以太坊。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "買入0.5個以太房"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "买入0.5个以太坊。"
+    }
+   ]
+  },
+  {
+   "id": "e01",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Alert me if BTC drops below sixty thousand",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "BTC",
+    "nums": [
+     60000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Alert me if BTC drops below 60,000."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Alert me if BTC drops below 60,000."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Alert me if BTC drops below 60,000."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Alert me if BTC drops below 60,000."
+    }
+   ]
+  },
+  {
+   "id": "e02",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Alert me when Bitcoin hits sixty five thousand",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "BTC",
+    "nums": [
+     65000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Alert me when Bitcoin hits 65,000."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Alert me when Bitcoin hits 65,000."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Alert me when Bitcoin hits 65,000."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Alert me when Bitcoin hits 65,000."
+    }
+   ]
+  },
+  {
+   "id": "e03",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Cut my ETH position in half",
+   "expect": {
+    "intent": "halve",
+    "sym": "ETH",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Cut my earth position in half."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Cut my ETH position in half."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Cut my f position in half."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Cut my eth position in half."
+    }
+   ]
+  },
+  {
+   "id": "e04",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Cancel all open orders",
+   "expect": {
+    "intent": "cancelAll",
+    "sym": null,
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "cancel all open orders"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "cancel all open orders."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Cancel all open orders."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Cancel all open orders."
+    }
+   ]
+  },
+  {
+   "id": "e05",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Set a stop loss on BTC at fifty nine thousand five hundred",
+   "expect": {
+    "intent": "stop",
+    "sym": "BTC",
+    "nums": [
+     59500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Set a stop loss on BTC at 59,500."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Set a stop loss on BTC at 59,500."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Set a stop loss on BTC at 59,500."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Set a stop loss on BTC at 59,500."
+    }
+   ]
+  },
+  {
+   "id": "e06",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Take profit on ETH at three thousand two hundred",
+   "expect": {
+    "intent": "take",
+    "sym": "ETH",
+    "nums": [
+     3200.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "take profit on F at 3200."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Take profit on F at 3200."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Take profit on F at 3200."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Take profit on F at 3,200."
+    }
+   ]
+  },
+  {
+   "id": "e07",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Close my Bitcoin position",
+   "expect": {
+    "intent": "close",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Close my bitcoin position."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Close my Bitcoin position."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Close my Bitcoin position."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Close my Bitcoin position."
+    }
+   ]
+  },
+  {
+   "id": "e08",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Sell zero point zero one Bitcoin",
+   "expect": {
+    "intent": "sell",
+    "sym": "BTC",
+    "nums": [
+     0.01
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Cells 0.01 bit coin"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "CEL 0.01 Bitcoin"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Sell 0.01 Bitcoin"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Sell 0.01 Bitcoin"
+    }
+   ]
+  },
+  {
+   "id": "e09",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Alert me if BTC falls below sixty thousand five hundred",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "BTC",
+    "nums": [
+     60500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Alert me if BTC falls below 60,500."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Alert me if BTC falls below 60,500."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Alert me if BTC falls below 60,500."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Alert me if BTC falls below 60,500."
+    }
+   ]
+  },
+  {
+   "id": "e10",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Alert me when ETH reaches two thousand eight hundred fifty",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "ETH",
+    "nums": [
+     2850.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Alert me when F reaches 2850."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Alert me when ETH reaches 2850."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Alert me when F reaches 2850"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Alert me when ETH reaches 2850."
+    }
+   ]
+  },
+  {
+   "id": "e11",
+   "lang": "en",
+   "set": "dev",
+   "ref": "BTC stop at sixty one thousand, take profit at sixty four thousand",
+   "expect": {
+    "intent": "bracket",
+    "sym": "BTC",
+    "nums": [
+     61000.0,
+     64000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "BTC stop at 61,000, take profit at 64,000."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "BTC stop at 61,000, take profit at 64,000."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "BTC stop at 61,000, take profit at 64,000."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "BTC stop at $61,000, take profit at $64,000."
+    }
+   ]
+  },
+  {
+   "id": "e12",
+   "lang": "en",
+   "set": "dev",
+   "ref": "Buy half an ETH",
+   "expect": {
+    "intent": "buy",
+    "sym": "ETH",
+    "nums": [
+     0.5
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "by half an earth."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "By half an earth."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "by half an F."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "by half an eth"
+    }
+   ]
+  },
+  {
+   "id": "h01",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "以太坊跌破两千五提醒我",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "ETH",
+    "nums": [
+     2500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "以太房跌破2500提醒我。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊跌破2500提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "以太坊跌破2500提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊跌破2500提醒物。"
+    }
+   ]
+  },
+  {
+   "id": "h02",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "比特币涨破六万八提醒我",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "BTC",
+    "nums": [
+     68000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "比特幣漲破6,8000提醒我。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币掌迫6,8提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "比特幣漲破68000提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币掌破68000提醒我。"
+    }
+   ]
+  },
+  {
+   "id": "h03",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "把比特币减半",
+   "expect": {
+    "intent": "halve",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "把比特幣減半"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "把比特币、减半。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "把比特币减半。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "把比特币减半。"
+    }
+   ]
+  },
+  {
+   "id": "h04",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "以太坊止损两千六百五",
+   "expect": {
+    "intent": "stop",
+    "sym": "ETH",
+    "nums": [
+     2650.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "以太房子损2600五。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊指损26005。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "以太坊止損2650"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊止损2650。"
+    }
+   ]
+  },
+  {
+   "id": "h05",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "比特币止盈六万六千五",
+   "expect": {
+    "intent": "take",
+    "sym": "BTC",
+    "nums": [
+     66500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "比特幣指贏6600005"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币指贫6600005。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "比特币只赢66500"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币 止盈 66500。"
+    }
+   ]
+  },
+  {
+   "id": "h06",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "平掉以太坊",
+   "expect": {
+    "intent": "close",
+    "sym": "ETH",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "評調以太方"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "平掉以太坊。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "评调以太坊"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "平掉以太坊。"
+    }
+   ]
+  },
+  {
+   "id": "h07",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "卖出零点二个以太坊",
+   "expect": {
+    "intent": "sell",
+    "sym": "ETH",
+    "nums": [
+     0.2
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "賣出0.2個以太方。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "卖出0.2个,以太坊。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "卖出0.2个以太坊"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "卖出0.2个以太坊。"
+    }
+   ]
+  },
+  {
+   "id": "h08",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "买入零点零零五个比特币",
+   "expect": {
+    "intent": "buy",
+    "sym": "BTC",
+    "nums": [
+     0.005
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "买入0.005个比特并"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "买入0.005个比特币。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "買入0.005個比特幣"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "买入0.005个比特币。"
+    }
+   ]
+  },
+  {
+   "id": "h09",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "以太坊止损两千七，止盈三千一",
+   "expect": {
+    "intent": "bracket",
+    "sym": "ETH",
+    "nums": [
+     2700.0,
+     3100.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "以太房子算20007,只贏3,1"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊指损2000,止盈3000,1。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "以太坊止損2000期,只迎3000一。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊止损2000期,止盈3000一。"
+    }
+   ]
+  },
+  {
+   "id": "h10",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "撤销全部挂单",
+   "expect": {
+    "intent": "cancelAll",
+    "sym": null,
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "撤銷全部掛單。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "撤销全部挂单。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "撤销全部挂单"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "撤销全部挂单。"
+    }
+   ]
+  },
+  {
+   "id": "h11",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "比特币跌到五万八提醒我",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "BTC",
+    "nums": [
+     58000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "比特幣跌倒5萬8提醒我。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币跌倒51800提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "比特幣跌到58000提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币跌到58000提醒我。"
+    }
+   ]
+  },
+  {
+   "id": "h12",
+   "lang": "zh",
+   "set": "heldout",
+   "ref": "比特币涨到七万零五百提醒我",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "BTC",
+    "nums": [
+     70500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "比特幣漲到7500T型物。"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币涨到7500T行我。"
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "比特幣漲到7500T型物。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币涨到7500题醒我。"
+    }
+   ]
+  },
+  {
+   "id": "k01",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Alert me if ETH drops below two thousand five hundred",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "ETH",
+    "nums": [
+     2500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Alert me if eth drops below 2500."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Alert me if ETH drops below 2500."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Alert me if eth drops below 2500."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Alert me if ETH drops below 2,500."
+    }
+   ]
+  },
+  {
+   "id": "k02",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Notify me when BTC goes above sixty eight thousand",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "BTC",
+    "nums": [
+     68000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Notify me when BTC goes above 68000."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Notify me when BTC goes above 68,000."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Notify me when BTC goes above 68000."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Notify me when BTC goes above 68000."
+    }
+   ]
+  },
+  {
+   "id": "k03",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Cut my Bitcoin position in half",
+   "expect": {
+    "intent": "halve",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Cut my bitcoin position in half."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Cut my Bitcoin position in half."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Cut my bitcoin position in half."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Cut my Bitcoin position in half."
+    }
+   ]
+  },
+  {
+   "id": "k04",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Set stop loss on ETH at two thousand six hundred fifty",
+   "expect": {
+    "intent": "stop",
+    "sym": "ETH",
+    "nums": [
+     2650.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Set stop loss on F at 2650."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Set stop loss on ETH at 2650."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Set stop loss on F at 2650."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Set stop loss on ETH at 2650."
+    }
+   ]
+  },
+  {
+   "id": "k05",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Take profit on Bitcoin at sixty six thousand five hundred",
+   "expect": {
+    "intent": "take",
+    "sym": "BTC",
+    "nums": [
+     66500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Take profit on Bitcoin at 66,500."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Take profit on Bitcoin at 66,500."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Take profit on Bitcoin at 66,500."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Take profit on Bitcoin at 66,500."
+    }
+   ]
+  },
+  {
+   "id": "k06",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Close my ETH position",
+   "expect": {
+    "intent": "close",
+    "sym": "ETH",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "close my f position."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Close my ETH position."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "close my f position"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Close my eth position."
+    }
+   ]
+  },
+  {
+   "id": "k07",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Sell zero point two ETH",
+   "expect": {
+    "intent": "sell",
+    "sym": "ETH",
+    "nums": [
+     0.2
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Cells 0.2 F"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Cells 0.2 F."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "cell 0.2F"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "cell 0.2F"
+    }
+   ]
+  },
+  {
+   "id": "k08",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Buy zero point zero zero five Bitcoin",
+   "expect": {
+    "intent": "buy",
+    "sym": "BTC",
+    "nums": [
+     0.005
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "by 0.005 bit coin."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Buy 0.005 Bitcoin."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "by 0.005 Bitcoin"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Buy 0.005 Bitcoin."
+    }
+   ]
+  },
+  {
+   "id": "k09",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "ETH stop at two thousand seven hundred, take profit at three thousand one hundred",
+   "expect": {
+    "intent": "bracket",
+    "sym": "ETH",
+    "nums": [
+     2700.0,
+     3100.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "F-Stop at 2,700, take profit at 3,100."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "ETH stop at 2700, take profit at 3100."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "F-Stop at 2700, Take Profit at 3100"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "ETH stop at 2700, take profit at 3100."
+    }
+   ]
+  },
+  {
+   "id": "k10",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Cancel every open order",
+   "expect": {
+    "intent": "cancelAll",
+    "sym": null,
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "cancel every open order"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "cancel every open order."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Cancel every open order."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Cancel every open order."
+    }
+   ]
+  },
+  {
+   "id": "k11",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Alert me if Bitcoin falls below fifty eight thousand",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "BTC",
+    "nums": [
+     58000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "alert me if bitcoin falls below 58,000"
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Alert me if Bitcoin falls below 58,000."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Alert me if Bitcoin falls below 58,000."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Alert me if Bitcoin falls below $58,000."
+    }
+   ]
+  },
+  {
+   "id": "k12",
+   "lang": "en",
+   "set": "heldout",
+   "ref": "Alert me when BTC reaches seventy thousand five hundred",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "BTC",
+    "nums": [
+     70500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": false,
+     "text": "Alert me when BTC reaches 70,500."
+    },
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Alert me when BTC reaches 70,500."
+    },
+    {
+     "model": "small",
+     "prompt": false,
+     "text": "Alert me when BTC reaches 70,500."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Alert me when BTC reaches 70,500."
+    }
+   ]
+  },
+  {
+   "id": "cy01",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "帮我在比特币跌破五万五的时候提醒一下",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "BTC",
+    "nums": [
+     55000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "帮我在比特币跌破5万5的时候提醒一下。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "帮我在比特币跌破55000的时候提醒一下。"
+    }
+   ]
+  },
+  {
+   "id": "cy02",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "给我设个提醒，以太坊涨到一千八",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "ETH",
+    "nums": [
+     1800.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "给我设个提醒,以太坊长到一千八。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "给我设个提醒：以太坊涨到1800。"
+    }
+   ]
+  },
+  {
+   "id": "cy03",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "以太坊要是跌到一千四百五就叫我",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "ETH",
+    "nums": [
+     1450.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊要时跌到1450就叫我。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊钥匙跌到1450就叫我。"
+    }
+   ]
+  },
+  {
+   "id": "cy04",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "麻烦把比特币仓位砍一半",
+   "expect": {
+    "intent": "halve",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "麻烦把比特币仓未砍一半。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "麻烦把比特币仓未砍一半。"
+    }
+   ]
+  },
+  {
+   "id": "cy05",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "帮我把以太坊全部平掉",
+   "expect": {
+    "intent": "close",
+    "sym": "ETH",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "帮我把以太坊全部平掉。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "帮我把以太坊全部平掉。"
+    }
+   ]
+  },
+  {
+   "id": "cy06",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "比特币止损挂在五万三千二百五十",
+   "expect": {
+    "intent": "stop",
+    "sym": "BTC",
+    "nums": [
+     53250.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币指损挂在5,32500。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币指损挂在53250。"
+    }
+   ]
+  },
+  {
+   "id": "cy07",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "以太坊止盈一千六百八十点五",
+   "expect": {
+    "intent": "take",
+    "sym": "ETH",
+    "nums": [
+     1680.5
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊指贫1680.5。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊止盈1680.5。"
+    }
+   ]
+  },
+  {
+   "id": "cy08",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "帮我买零点零一个比特币",
+   "expect": {
+    "intent": "buy",
+    "sym": "BTC",
+    "nums": [
+     0.01
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "帮我买0.01克比特币。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "帮我买0.01个比特币。"
+    }
+   ]
+  },
+  {
+   "id": "cy09",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "给我卖掉一点五个以太坊",
+   "expect": {
+    "intent": "sell",
+    "sym": "ETH",
+    "nums": [
+     1.5
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "给我卖掉1.5个以太坊。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "给我卖掉1.5个以太坊。"
+    }
+   ]
+  },
+  {
+   "id": "cy10",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "把所有挂单都撤了",
+   "expect": {
+    "intent": "cancelAll",
+    "sym": null,
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "把所有挂单都撤了。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "把所有挂单都撤了。"
+    }
+   ]
+  },
+  {
+   "id": "cy11",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "比特币止损五万四，止盈五万九",
+   "expect": {
+    "intent": "bracket",
+    "sym": "BTC",
+    "nums": [
+     54000.0,
+     59000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币只损5万4,止盈5万9。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币止损5万4,止盈5万9。"
+    }
+   ]
+  },
+  {
+   "id": "cy12",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "以太坊跌破一千五百二十五点五提醒我",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "ETH",
+    "nums": [
+     1525.5
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊跌破1525.5T醒握。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊跌破1525.5提醒物。"
+    }
+   ]
+  },
+  {
+   "id": "cy13",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "比特币涨过五万七千五提醒我",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "BTC",
+    "nums": [
+     57500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币掌过517,5T行我。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币掌握 57,500 提醒我。"
+    }
+   ]
+  },
+  {
+   "id": "cy14",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "帮我把比特币的止损改到五万五千零五十",
+   "expect": {
+    "intent": "stop",
+    "sym": "BTC",
+    "nums": [
+     55050.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "帮我把比特币的止损改到550050。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "帮我把比特币的止损改到55,050。"
+    }
+   ]
+  },
+  {
+   "id": "cy15",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "以太坊止损一千五，止盈一千七百五",
+   "expect": {
+    "intent": "bracket",
+    "sym": "ETH",
+    "nums": [
+     1500.0,
+     1750.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊指损10005,止盈17005。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊止损1,500,止盈1,750。"
+    }
+   ]
+  },
+  {
+   "id": "cy16",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "现在比特币多少钱",
+   "expect": {
+    "intent": "unknown",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "现在比特币多少钱。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "现在比特币多少钱?"
+    }
+   ]
+  },
+  {
+   "id": "cy17",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "帮我看看以太坊今天涨了多少",
+   "expect": {
+    "intent": "unknown",
+    "sym": "ETH",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "帮我看看以太坊今天长了多少。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "帮我看看以太坊今天长了多少。"
+    }
+   ]
+  },
+  {
+   "id": "cy18",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "卖出零点零零三个比特币",
+   "expect": {
+    "intent": "sell",
+    "sym": "BTC",
+    "nums": [
+     0.003
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "賣出0.003个比特币。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "卖出0.003个比特币。"
+    }
+   ]
+  },
+  {
+   "id": "cy19",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "买入两个以太坊",
+   "expect": {
+    "intent": "buy",
+    "sym": "ETH",
+    "nums": [
+     2.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "买入两个以太坊。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "买入两个以太坊。"
+    }
+   ]
+  },
+  {
+   "id": "cy20",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "比特币跌到五万零八百提醒我",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "BTC",
+    "nums": [
+     50800.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币跌到5800提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币跌到50800提醒我。"
+    }
+   ]
+  },
+  {
+   "id": "cy21",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "以太坊涨到一千六百零五提醒我",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "ETH",
+    "nums": [
+     1605.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊涨到1650提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊涨到1605提醒我。"
+    }
+   ]
+  },
+  {
+   "id": "cy22",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "撤单，全部撤掉",
+   "expect": {
+    "intent": "cancelAll",
+    "sym": null,
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "撤单全部撤掉。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "撤单,全部撤掉。"
+    }
+   ]
+  },
+  {
+   "id": "cy23",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "以太坊仓位减一半",
+   "expect": {
+    "intent": "halve",
+    "sym": "ETH",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊倉未解一半。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太防仓未减一半。"
+    }
+   ]
+  },
+  {
+   "id": "cy24",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "给我把比特币平仓",
+   "expect": {
+    "intent": "close",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "给我把币特币平仓。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "给我把比特币平仓。"
+    }
+   ]
+  },
+  {
+   "id": "cy25",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "BTC止盈六万一千二",
+   "expect": {
+    "intent": "take",
+    "sym": "BTC",
+    "nums": [
+     61200.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "BTC指盈6万1千2"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "BTC 只赢 61,200."
+    }
+   ]
+  },
+  {
+   "id": "cy26",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "ETH跌破一千三提醒我",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "ETH",
+    "nums": [
+     1300.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "SDP1300提醒我。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "S 跌破 1,300 提醒我。"
+    }
+   ]
+  },
+  {
+   "id": "cy27",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "比特币要是涨到六万了跟我说一声",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "BTC",
+    "nums": [
+     60000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币要时长到6万了跟我说一声。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币钥匙涨到6万了 跟我说一声。"
+    }
+   ]
+  },
+  {
+   "id": "cy28",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "帮我挂个以太坊止损，一千四百八十",
+   "expect": {
+    "intent": "stop",
+    "sym": "ETH",
+    "nums": [
+     1480.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "帮我挂个以太坊止损,1480。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "帮我挂个以太坊、止损,1480。"
+    }
+   ]
+  },
+  {
+   "id": "cy29",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "比特币卖掉一半",
+   "expect": {
+    "intent": "halve",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "比特币卖掉一半。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "比特币卖掉一半。"
+    }
+   ]
+  },
+  {
+   "id": "cy30",
+   "lang": "zh",
+   "set": "colloquial",
+   "ref": "以太坊止盈设在一千九百九十九点九",
+   "expect": {
+    "intent": "take",
+    "sym": "ETH",
+    "nums": [
+     1999.9
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "以太坊指盈设在1999.9%。"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "以太坊止盈设在1999.9。"
+    }
+   ]
+  },
+  {
+   "id": "ce01",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Hey, ping me if Bitcoin drops under fifty five thousand",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "BTC",
+    "nums": [
+     55000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Hey, ping me if Bitcoin drops under $55,000."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Hey, ping me if Bitcoin drops under 55,000."
+    }
+   ]
+  },
+  {
+   "id": "ce02",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Can you alert me when ETH hits one thousand eight hundred",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "ETH",
+    "nums": [
+     1800.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Can you alert me when ETH hits 1,800?"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Can you alert me when F hits 1800?"
+    }
+   ]
+  },
+  {
+   "id": "ce03",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Let me know if ETH falls to fourteen fifty",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "ETH",
+    "nums": [
+     1450.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Let me know if ETH falls to 1450."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Let me know if ETH falls to 1450."
+    }
+   ]
+  },
+  {
+   "id": "ce04",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Please cut my ETH in half",
+   "expect": {
+    "intent": "halve",
+    "sym": "ETH",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Please cut my ETH in half."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Please cut my eth in half."
+    }
+   ]
+  },
+  {
+   "id": "ce05",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Close out my whole Bitcoin position",
+   "expect": {
+    "intent": "close",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Close out my whole Bitcoin position."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Close out my whole Bitcoin position."
+    }
+   ]
+  },
+  {
+   "id": "ce06",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Put a stop loss on BTC at fifty three thousand two hundred fifty",
+   "expect": {
+    "intent": "stop",
+    "sym": "BTC",
+    "nums": [
+     53250.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Put a stop loss on BTC at 53,250."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Put a stop loss on BTC at 53,250."
+    }
+   ]
+  },
+  {
+   "id": "ce07",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Take profit on ETH at sixteen eighty point five",
+   "expect": {
+    "intent": "take",
+    "sym": "ETH",
+    "nums": [
+     1680.5
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Take profit on ETH at 1680.5."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Take profit on ETH at 1680.5."
+    }
+   ]
+  },
+  {
+   "id": "ce08",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Buy me zero point zero one Bitcoin",
+   "expect": {
+    "intent": "buy",
+    "sym": "BTC",
+    "nums": [
+     0.01
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Buy me 0.01 Bitcoin."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Buy me 0.01 Bitcoin."
+    }
+   ]
+  },
+  {
+   "id": "ce09",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Sell one point five ETH",
+   "expect": {
+    "intent": "sell",
+    "sym": "ETH",
+    "nums": [
+     1.5
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Sell 1.5 F."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "cell 1.5th"
+    }
+   ]
+  },
+  {
+   "id": "ce10",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Cancel all my orders",
+   "expect": {
+    "intent": "cancelAll",
+    "sym": null,
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Cancel all my orders."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Cancel all my orders."
+    }
+   ]
+  },
+  {
+   "id": "ce11",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Bitcoin stop at fifty four thousand, take profit at fifty nine thousand",
+   "expect": {
+    "intent": "bracket",
+    "sym": "BTC",
+    "nums": [
+     54000.0,
+     59000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Bitcoin stop at $54,000, take profit at $59,000."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Bitcoin stop at $54,000, take profit at $59,000."
+    }
+   ]
+  },
+  {
+   "id": "ce12",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Alert me if ETH goes below one thousand five hundred twenty five point five",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "ETH",
+    "nums": [
+     1525.5
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Alert me if ETH goes below 1500-25.5."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Alert me if eth goes below 1525.5."
+    }
+   ]
+  },
+  {
+   "id": "ce13",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Tell me when Bitcoin gets above fifty seven thousand five hundred",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "BTC",
+    "nums": [
+     57500.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Tell me when Bitcoin gets above 57,500."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Tell me when Bitcoin gets above $57,500."
+    }
+   ]
+  },
+  {
+   "id": "ce14",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Move my Bitcoin stop loss to fifty five thousand fifty",
+   "expect": {
+    "intent": "stop",
+    "sym": "BTC",
+    "nums": [
+     55050.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Move my Bitcoin stop loss to 55,050."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Move my Bitcoin stop loss to $55,050."
+    }
+   ]
+  },
+  {
+   "id": "ce15",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "ETH stop loss fifteen hundred, take profit seventeen fifty",
+   "expect": {
+    "intent": "bracket",
+    "sym": "ETH",
+    "nums": [
+     1500.0,
+     1750.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "ETH stop loss 1500, take profit 1750."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "ETH stop loss 1500, take profit 1750."
+    }
+   ]
+  },
+  {
+   "id": "ce16",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "What's the price of Bitcoin right now",
+   "expect": {
+    "intent": "unknown",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "What's the price of Bitcoin right now?"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "What's the price of Bitcoin right now?"
+    }
+   ]
+  },
+  {
+   "id": "ce17",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "How much is ETH up today",
+   "expect": {
+    "intent": "unknown",
+    "sym": "ETH",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "How much is ETH up today?"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "How much is ETH up today?"
+    }
+   ]
+  },
+  {
+   "id": "ce18",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Sell zero point zero zero three Bitcoin",
+   "expect": {
+    "intent": "sell",
+    "sym": "BTC",
+    "nums": [
+     0.003
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "CEL 0.003 Bitcoin"
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Sell 0.003 Bitcoin."
+    }
+   ]
+  },
+  {
+   "id": "ce19",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Buy two ETH",
+   "expect": {
+    "intent": "buy",
+    "sym": "ETH",
+    "nums": [
+     2.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Buy 2 F."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Buy 2F."
+    }
+   ]
+  },
+  {
+   "id": "ce20",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Alert me when Bitcoin drops to fifty thousand eight hundred",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "BTC",
+    "nums": [
+     50800.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Alert me when Bitcoin drops to 50,800."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Alert me when Bitcoin drops to $50,800."
+    }
+   ]
+  },
+  {
+   "id": "ce21",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Notify me if ETH climbs to one thousand six hundred five",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "ETH",
+    "nums": [
+     1605.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Notify me if ETH climbs to 1,605."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Notify me if ETH climbs to 1605."
+    }
+   ]
+  },
+  {
+   "id": "ce22",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Kill all open orders",
+   "expect": {
+    "intent": "cancelAll",
+    "sym": null,
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Kill all open orders."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Kill all open orders."
+    }
+   ]
+  },
+  {
+   "id": "ce23",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Halve my ETH position",
+   "expect": {
+    "intent": "halve",
+    "sym": "ETH",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Have my ETH position."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Have my eth position."
+    }
+   ]
+  },
+  {
+   "id": "ce24",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Flatten my Bitcoin",
+   "expect": {
+    "intent": "close",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Flatten my Bitcoin."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Flatten my Bitcoin."
+    }
+   ]
+  },
+  {
+   "id": "ce25",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "BTC take profit sixty one thousand two hundred",
+   "expect": {
+    "intent": "take",
+    "sym": "BTC",
+    "nums": [
+     61200.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "BTC take profit 61,200."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "BTC take profit $61,200."
+    }
+   ]
+  },
+  {
+   "id": "ce26",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Alert me if ETH dips below thirteen hundred",
+   "expect": {
+    "intent": "alertBelow",
+    "sym": "ETH",
+    "nums": [
+     1300.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "alert me if FDIPs below 1300."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Alert me if FDIPs below 1300."
+    }
+   ]
+  },
+  {
+   "id": "ce27",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Give me a heads up if Bitcoin reaches sixty thousand",
+   "expect": {
+    "intent": "alertAbove",
+    "sym": "BTC",
+    "nums": [
+     60000.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Give me a heads up if Bitcoin reaches 60,000."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Give me a heads up if Bitcoin reaches 60,000."
+    }
+   ]
+  },
+  {
+   "id": "ce28",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Set a stop on ETH at one thousand four hundred eighty",
+   "expect": {
+    "intent": "stop",
+    "sym": "ETH",
+    "nums": [
+     1480.0
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Set a stop on ETH at 1,480."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Set a stop on F at 1480."
+    }
+   ]
+  },
+  {
+   "id": "ce29",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "Sell half my Bitcoin",
+   "expect": {
+    "intent": "halve",
+    "sym": "BTC",
+    "nums": []
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "Sell half my Bitcoin."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "Sell half my Bitcoin."
+    }
+   ]
+  },
+  {
+   "id": "ce30",
+   "lang": "en",
+   "set": "colloquial",
+   "ref": "ETH take profit at one thousand nine hundred ninety nine point nine",
+   "expect": {
+    "intent": "take",
+    "sym": "ETH",
+    "nums": [
+     1999.9
+    ]
+   },
+   "stt": [
+    {
+     "model": "base",
+     "prompt": true,
+     "text": "ETH take profit at $1,999.9."
+    },
+    {
+     "model": "small",
+     "prompt": true,
+     "text": "FTH take profit at $1,999.9."
+    }
+   ]
+  }
+ ]
+}
