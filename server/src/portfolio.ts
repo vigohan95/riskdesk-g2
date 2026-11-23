@@ -40,6 +40,17 @@ export class FillStore {
   }
 }
 
+export class JsonStore<T> {
+  readonly path: string
+  private empty: T
+  constructor(path: string, empty: T) { this.path = path; this.empty = empty }
+  load(): T { return existsSync(this.path) ? JSON.parse(readFileSync(this.path, 'utf8')) : this.empty }
+  save(v: T) {
+    mkdirSync(dirname(this.path), { recursive: true })
+    writeFileSync(this.path, JSON.stringify(v, null, 1))
+  }
+}
+
 export function buildLedger(fills: Fill[], feeRate?: number): PaperLedger {
   const L = new PaperLedger(feeRate)
   for (const f of fills.slice().sort((a, b) => a.t - b.t)) L.apply(f)

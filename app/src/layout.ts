@@ -24,7 +24,7 @@ export type Text = { id: number; name: string; x: number; y: number; w: number; 
 export type Page = { texts: Text[] }
 
 // Mirrors server/src/state.ts (the app never computes money, it only formats it)
-export type Row = { product: string; sym: string; price: number; chg24: number; qty: number; avg: number | null; upnl: number | null }
+export type Row = { product: string; sym: string; price: number; chg24: number; qty: number; avg: number | null; upnl: number | null; stop?: number | null; take?: number | null }
 export type DeskState = {
   t: number
   feed: { status: 'connecting' | 'live' | 'stale'; ageMs: number | null }
@@ -36,8 +36,8 @@ export type DeskState = {
 }
 export type ActionView = {
   id: string
-  status: 'proposed' | 'armed' | 'undone' | 'sending' | 'filled' | 'failed'
-  kind: 'halve' | 'close'
+  status: 'proposed' | 'armed' | 'undone' | 'sending' | 'filled' | 'placed' | 'failed'
+  kind: ActionKind
   sym: string
   side: 'BUY' | 'SELL'
   qty: number
@@ -50,13 +50,19 @@ export type ActionView = {
   fillPrice: number | null
   reason: string | null
   venue: 'sandbox' | 'production'
+  refPrice?: number
+  trigger?: number | null
+  replaces?: number | null
+  affected?: number | null
+  auto?: boolean
 }
+export type ActionKind = 'halve' | 'close' | 'stop' | 'take' | 'cancelAll'
 export type PageKind = 'pnl' | 'confirm' | 'undo' | 'result'
 export function pageKind(s: DeskState | null): PageKind {
   switch (s?.action?.status) {
     case 'proposed': return 'confirm'
     case 'armed': case 'sending': return 'undo'
-    case 'filled': case 'undone': case 'failed': return 'result'
+    case 'filled': case 'placed': case 'undone': case 'failed': return 'result'
     default: return 'pnl'
   }
 }
@@ -104,8 +110,8 @@ export function rpad(s: string, w: number): string {
 const col = (xs: string[], w: number) => xs.map((s) => rpad(s, w)).join('\n')
 
 const L = {
-  en: { today: 'Today', na: '—', live: 'feed ● live', stale: (s: number) => `feed ○ STALE ${s}s · prices frozen`, connecting: 'feed ○ connecting…', offline: 'backend offline · retrying', open: (n: number) => `${n} open`, alerts: (n: number) => `${n} alert${n === 1 ? '' : 's'}`, flat: 'flat', old: 'old', worst: 'Worst', afterFees: 'after fees, if closed now' },
-  zh: { today: '今日', na: '—', live: '行情 ● 实时', stale: (s: number) => `行情 ○ 中断 ${s} 秒 · 价格已冻结`, connecting: '行情 ○ 连接中…', offline: '后端离线 · 重试中', open: (n: number) => `挂单 ${n}`, alerts: (n: number) => `提醒 ${n}`, flat: '空仓', old: '旧价', worst: '最差', afterFees: '扣费后，按现在平仓' },
+  en: { stopAt: (px: string, d: string) => `stop ${px} (${d}%)`, today: 'Today', na: '—', live: 'feed ● live', stale: (s: number) => `feed ○ STALE ${s}s · prices frozen`, connecting: 'feed ○ connecting…', offline: 'backend offline · retrying', open: (n: number) => `${n} open`, alerts: (n: number) => `${n} alert${n === 1 ? '' : 's'}`, flat: 'flat', old: 'old', worst: 'Worst', afterFees: 'after fees, if closed now' },
+  zh: { stopAt: (px: string, d: string) => `止损 ${px}（${d}%）`, today: '今日', na: '—', live: '行情 ● 实时', stale: (s: number) => `行情 ○ 中断 ${s} 秒 · 价格已冻结`, connecting: '行情 ○ 连接中…', offline: '后端离线 · 重试中', open: (n: number) => `挂单 ${n}`, alerts: (n: number) => `提醒 ${n}`, flat: '空仓', old: '旧价', worst: '最差', afterFees: '扣费后，按现在平仓' },
 }
 
 /** PnL page: header, 4 columns (symbol / price / 24h / position), worst-position line, footer. */
@@ -126,8 +132,10 @@ export function pnlPage(s: DeskState | null, lang: Lang, offline = false): Page 
   const pos = rows.map((r) => (r.qty ? `${fmtQty(r.qty)}  ${signed(r.upnl ?? 0, 2)}` : t.flat))
   const held = rows.filter((r) => r.qty && r.upnl !== null)
   const worst = held.sort((a, b) => a.upnl! - b.upnl!)[0]
+  // With a stop resting on the worst position, the distance to it is the more useful half of the line.
+  const tail = worst?.stop ? t.stopAt(fmtNum(worst.stop, priceDigits(worst.stop)), signed(((worst.stop - worst.price) / worst.price) * 100, 1)) : t.afterFees
   const worstLine = worst
-    ? `${t.worst}: ${worst.sym} ${signed(worst.upnl!, 2)} USD (${signed((worst.upnl! / (Math.abs(worst.qty) * worst.avg!)) * 100, 1)}%) · ${t.afterFees}`
+    ? `${t.worst}: ${worst.sym} ${signed(worst.upnl!, 2)} USD (${signed((worst.upnl! / (Math.abs(worst.qty) * worst.avg!)) * 100, 1)}%) · ${tail}`
     : ''
   let foot: string
   if (offline) foot = t.offline
@@ -164,6 +172,40 @@ export function overflows(p: Page): string[] {
 // ---------------------------------------------------------------------------------------------
 // Action pages. One question per page, the money number is the brightest line, and the only
 // event-capture container is the footer, which always says what a tap does on this page.
+
+const pxs = (x: number) => fmtNum(x, priceDigits(x))
+const pct = (v: ActionView) => signed(((v.trigger! - v.refPrice!) / v.refPrice!) * 100, 1)
+const isResting = (v: ActionView) => v.kind === 'stop' || v.kind === 'take'
+
+/** Texts for stop / take-profit / cancel-all. Same page geometry as halve / close. */
+const R = {
+  en: {
+    name: (v: ActionView) => (v.kind === 'stop' ? 'Stop-loss' : 'Take-profit'),
+    title: (v: ActionView) => (v.kind === 'cancelAll' ? `Cancel all ${v.affected} open orders?` : `${R.en.name(v)} on ${v.sym}?`),
+    order: (v: ActionView) => v.kind === 'cancelAll'
+      ? 'Paper stop / take-profit orders. Positions stay as they are.'
+      : `${v.side === 'SELL' ? 'Sell' : 'Buy'} ${fmtQty(v.qty)} ${v.sym} if ${v.side === 'SELL' ? 'bid' : 'ask'} ${(v.kind === 'stop') === (v.side === 'SELL') ? '≤' : '≥'} ${pxs(v.trigger!)} (${pct(v)}%)`,
+    money: (v: ActionView) => (v.kind === 'cancelAll' ? 'Nothing is sold or bought.' : `${v.estNet >= 0 ? 'You would get' : 'You would pay'} ≈ ${fmtNum(Math.abs(v.estNet), 2)} USD`),
+    fee: (v: ActionView) => (v.kind === 'cancelAll' ? '' : `fee ${fmtNum(v.estFee, 2)} · ${v.replaces ? `replaces ${pxs(v.replaces)}` : 'fires one market order'}`),
+    armed: (v: ActionView, s: number) => (v.kind === 'cancelAll' ? `Cancelling ${v.affected} orders in ${s} s` : `Setting ${R.en.name(v).toLowerCase()} ${v.sym} ${pxs(v.trigger!)} in ${s} s`),
+    placed: (v: ActionView) => (v.kind === 'cancelAll' ? `Cancelled ${v.affected} orders.` : `${R.en.name(v)} set: ${v.sym} at ${pxs(v.trigger!)}`),
+    placedDetail: (v: ActionView) => (v.kind === 'cancelAll' ? 'Positions unchanged.' : `Paper order, watched against the live ${v.side === 'SELL' ? 'bid' : 'ask'}`),
+    hit: (v: ActionView) => `${v.kind === 'stop' ? 'Stop hit' : 'Take-profit hit'}: ${v.side === 'SELL' ? 'sold' : 'bought'} ${fmtQty(v.qty)} ${v.sym} at ${pxs(v.fillPrice!)}`,
+  },
+  zh: {
+    name: (v: ActionView) => (v.kind === 'stop' ? '止损' : '止盈'),
+    title: (v: ActionView) => (v.kind === 'cancelAll' ? `撤销全部 ${v.affected} 张挂单？` : `${v.sym} 设${R.zh.name(v)}？`),
+    order: (v: ActionView) => v.kind === 'cancelAll'
+      ? '纸面止损 / 止盈单。持仓不变。'
+      : `${v.side === 'SELL' ? '买一价' : '卖一价'} ${(v.kind === 'stop') === (v.side === 'SELL') ? '≤' : '≥'} ${pxs(v.trigger!)}（${pct(v)}%）时${v.side === 'SELL' ? '卖出' : '买入'} ${fmtQty(v.qty)} ${v.sym}`,
+    money: (v: ActionView) => (v.kind === 'cancelAll' ? '不会买卖任何东西。' : `届时${v.estNet >= 0 ? '到手' : '付出'}约 ${fmtNum(Math.abs(v.estNet), 2)} USD`),
+    fee: (v: ActionView) => (v.kind === 'cancelAll' ? '' : `手续费 ${fmtNum(v.estFee, 2)} · ${v.replaces ? `替换原来的 ${pxs(v.replaces)}` : '触发后发一张市价单'}`),
+    armed: (v: ActionView, s: number) => (v.kind === 'cancelAll' ? `${s} 秒后撤销 ${v.affected} 张挂单` : `${s} 秒后挂 ${v.sym} ${R.zh.name(v)} ${pxs(v.trigger!)}`),
+    placed: (v: ActionView) => (v.kind === 'cancelAll' ? `已撤销 ${v.affected} 张挂单。` : `已设${R.zh.name(v)}：${v.sym} ${pxs(v.trigger!)}`),
+    placedDetail: (v: ActionView) => (v.kind === 'cancelAll' ? '持仓没变。' : `纸面挂单，盯实时${v.side === 'SELL' ? '买一价' : '卖一价'}`),
+    hit: (v: ActionView) => `${v.kind === 'stop' ? '止损触发' : '止盈触发'}：${v.side === 'SELL' ? '卖出' : '买入'} ${fmtQty(v.qty)} ${v.sym}，成交 ${pxs(v.fillPrice!)}`,
+  },
+}
 
 const A = {
   en: {
@@ -213,6 +255,18 @@ const box = (id: number, name: string, y: number, content: string, color: number
 
 export function confirmPage(v: ActionView, lang: Lang): Page {
   const t = A[lang]
+  if (v.kind === 'cancelAll' || isResting(v)) {
+    const r = R[lang]
+    return {
+      texts: [
+        box(1, 'title', 0, r.title(v), 4, { h: boxH(1) + 2, border: true }),
+        box(2, 'order', 54, r.order(v), 3),
+        box(3, 'money', 98, r.money(v), 4),
+        box(4, 'fee', 142, r.fee(v), 2),
+        box(5, 'foot', FOOTER_Y, t.confirmFoot, 3, { capture: true }),
+      ],
+    }
+  }
   return {
     texts: [
       box(1, 'title', 0, t.title(v), 4, { h: boxH(1) + 2, border: true }),
@@ -228,11 +282,12 @@ export function undoPage(v: ActionView, lang: Lang): Page {
   const t = A[lang]
   const sending = v.status === 'sending'
   const sec = Math.max(0, Math.ceil((v.remainMs ?? 0) / 1000))
+  const other = v.kind === 'cancelAll' || isResting(v)
   return {
     texts: [
-      box(1, 'title', 0, sending ? t.sending(v) : t.armed(v, sec), 4, { h: boxH(1) + 2, border: true }),
+      box(1, 'title', 0, sending ? t.sending(v) : other ? R[lang].armed(v, sec) : t.armed(v, sec), 4, { h: boxH(1) + 2, border: true }),
       box(2, 'dots', 70, sending ? '' : dots(v.remainMs ?? 0), 4),
-      box(3, 'money', 126, t.money(v), 2),
+      box(3, 'money', 126, other ? R[lang].money(v) : t.money(v), 2),
       box(4, 'foot', FOOTER_Y, sending ? t.sendingFoot : t.undoFoot, 4, { capture: true }),
     ],
   }
@@ -243,7 +298,8 @@ export function resultPage(v: ActionView | null, lang: Lang, note?: string): Pag
   let line = note ?? ''
   let detail = ''
   let venue = ''
-  if (v?.status === 'filled') { line = t.filled(v); detail = t.pos(v); if (v.venue === 'sandbox') venue = t.sandbox }
+  if (v?.status === 'filled') { line = v.auto ? R[lang].hit(v) : t.filled(v); detail = t.pos(v); if (v.venue === 'sandbox') venue = t.sandbox }
+  else if (v?.status === 'placed') { line = R[lang].placed(v); detail = R[lang].placedDetail(v) }
   else if (v?.status === 'undone') line = t.undone
   else if (v?.status === 'failed') { line = t.failed; detail = v.reason ?? '' }
   return {
@@ -256,20 +312,32 @@ export function resultPage(v: ActionView | null, lang: Lang, note?: string): Pag
   }
 }
 
-/** Context-menu entries of the PnL page. IDs encode the action so a click needs no lookup table. */
+/** Context-menu entries of the PnL page. IDs encode the action so a click needs no lookup table:
+ *  tens digit = symbol (1-based), units digit = action. The SDK allows 10 items of <= 32 UTF-8 bytes,
+ *  so 4 actions x 2 symbols + cancel all + language fills it exactly; a third symbol only gets halve / close. */
 export const MENU_LANG = 90
-export function menuItems(syms: string[], lang: Lang): { itemID: number; itemName: string }[] {
-  const items: { itemID: number; itemName: string }[] = []
-  syms.slice(0, 4).forEach((sym, i) => {
-    items.push({ itemID: 10 * (i + 1) + 1, itemName: lang === 'zh' ? `${sym} 减半` : `Halve ${sym}` })
-    items.push({ itemID: 10 * (i + 1) + 2, itemName: lang === 'zh' ? `${sym} 全部平仓` : `Close ${sym}` })
-  })
-  items.push({ itemID: MENU_LANG, itemName: lang === 'zh' ? 'English' : '中文' })
-  return items
+export const MENU_CANCEL_ALL = 80
+export const MENU_MAX = 10
+const KINDS: ('halve' | 'close' | 'stop' | 'take')[] = ['halve', 'close', 'stop', 'take']
+const LABEL = {
+  en: { halve: (s: string) => `Halve ${s}`, close: (s: string) => `Close ${s}`, stop: (s: string) => `Stop-loss ${s}`, take: (s: string) => `Take-profit ${s}`, cancelAll: 'Cancel all orders', lang: '中文' },
+  zh: { halve: (s: string) => `${s} 减半`, close: (s: string) => `${s} 全部平仓`, stop: (s: string) => `${s} 设止损`, take: (s: string) => `${s} 设止盈`, cancelAll: '撤全部挂单', lang: 'English' },
 }
-export function menuAction(itemID: number, syms: string[]): { kind: 'halve' | 'close'; sym: string } | null {
+export function menuItems(syms: string[], lang: Lang): { itemID: number; itemName: string }[] {
+  const L = LABEL[lang]
+  const items: { itemID: number; itemName: string }[] = []
+  const per = syms.length <= 2 ? 4 : 2
+  syms.slice(0, 4).forEach((sym, i) => {
+    KINDS.slice(0, per).forEach((k, j) => items.push({ itemID: 10 * (i + 1) + j + 1, itemName: L[k](sym) }))
+  })
+  if (per === 4) items.push({ itemID: MENU_CANCEL_ALL, itemName: L.cancelAll })
+  items.push({ itemID: MENU_LANG, itemName: L.lang })
+  return items // <= 10 for any number of symbols (2 -> 10, 3 -> 7, 4 -> 9)
+}
+export function menuAction(itemID: number, syms: string[]): { kind: ActionKind; sym: string | null } | null {
+  if (itemID === MENU_CANCEL_ALL) return { kind: 'cancelAll', sym: null }
   const i = Math.floor(itemID / 10) - 1
   const k = itemID % 10
-  if (i < 0 || i >= syms.length || (k !== 1 && k !== 2)) return null
-  return { kind: k === 1 ? 'halve' : 'close', sym: syms[i] }
+  if (i < 0 || i >= syms.length || i >= 4 || k < 1 || k > 4) return null
+  return { kind: KINDS[k - 1], sym: syms[i] }
 }

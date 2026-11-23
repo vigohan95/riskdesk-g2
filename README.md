@@ -26,7 +26,8 @@ Screenshots are the simulator's 576x288 glasses buffer, drawn green-on-black at 
 
 ### One-tap actions with a 5-second undo (Day 2)
 
-Open the glasses' context menu on the positions page: **Halve BTC / Close BTC / Halve ETH / Close ETH / language**.
+Open the glasses' context menu on the positions page: **Halve / Close / Stop-loss / Take-profit** for BTC and ETH,
+**Cancel all orders**, and language: 10 items, the SDK maximum.
 
 1. **Confirm page** - what will be sold, at roughly which price (bid for a sell, ask for a buy), the fee, what you get,
    and the position before -> after. Every number comes from the backend; the glasses only lay it out.
@@ -64,19 +65,65 @@ filled SELL 0.75 ETH-USD @ 1722.8
 action 7a7ec95f close ETH-USD: filled
 ```
 
+### Stop-loss, take-profit, cancel all (Day 2b)
+
+The same confirm -> 5 s undo flow places **paper resting orders**, watched by the backend against the live quote:
+
+- **Stop-loss** rests 2% below the current exit price (long) / above it (short); **take-profit** 3% on the other side
+  (`STOP_PCT` / `TAKE_PCT` to change). The confirm page says which side of the book triggers it, the distance in %,
+  and what the fill would pay after fees. One stop and one take per position; a new one says what it replaces.
+- Triggers use the price you can actually exit at: the **bid** for a long, the **ask** for a short. A stale or
+  missing quote never triggers. When one fires, the backend sends one market IOC order (same path as a manual close),
+  books the fill at the *execution-time* bid/ask, and drops the other order of that position (one-cancels-other).
+  The glasses show "Stop hit: sold ... at ..." by themselves.
+- Halving a position shrinks its resting orders to the new size; closing it drops them. A manual close that was
+  armed when a stop fired is refused ("position already closed") instead of opening a short.
+- **Cancel all orders** shows how many it will cancel and that positions stay as they are.
+- The positions page footer counts open orders, and the worst-position line shows the distance to its stop.
+- Resting orders are saved in `server/data/orders.json` and re-fitted to the ledger on restart.
+
+Why paper and not exchange stops: the public Coinbase sandbox returns canned responses and keeps no order book,
+so a native stop placed there could never trigger. With production keys the same orders could be sent as
+Advanced Trade `stop_limit_stop_limit_gtc` / bracket orders; that is not wired up in this hackathon build.
+
+| Menu (10 items) | Stop-loss confirm (zh) | Undo window |
+|---|---|---|
+| ![menu](docs/shots/day2b_menu_en.png) | ![stop](docs/shots/day2b_confirm_stop_zh.png) | ![undo](docs/shots/day2b_undo_stop_zh.png) |
+
+| Positions: 1 open order, distance to stop | Take-profit confirm | Cancel all |
+|---|---|---|
+| ![pnl](docs/shots/day2b_pnl_stop_zh.png) | ![take](docs/shots/day2b_confirm_take_en.png) | ![cancel](docs/shots/day2b_confirm_cancel_en.png) |
+
+A stop firing by itself (backend started with `STOP_PCT=0.00005` so the live BTC bid crosses it within seconds):
+
+![stop hit](docs/shots/day2b_stop_hit_en.png)
+
+```
+action 1ed5ccd3 stop BTC-USD: proposed
+action 1ed5ccd3 stop BTC-USD: armed
+action 1ed5ccd3 stop BTC-USD: placed
+action 2e5017e7 stop BTC-USD: sending
+filled SELL 0.02 BTC-USD @ 63734.19
+action 2e5017e7 stop BTC-USD: filled
+```
+
+In an earlier run the stop was at 64,306.64 and the fill was booked at 64,310.63: the bid crossed the trigger and
+bounced back during the sandbox round trip. The ledger keeps the execution-time price, not the trigger.
+
 ## Run it
 
 Needs Node 22.18+ (TypeScript runs natively, the backend has zero dependencies).
 
 ```bash
 cd server && npm start            # http://127.0.0.1:8787  (/api/state, /api/stream, POST /api/preview|confirm|undo|dismiss)
+                                  # preview kinds: halve, close, stop, take (with product) and cancelAll
 cd app && npm install && npm run dev
 npx evenhub-simulator http://127.0.0.1:5173/
 ```
 
-Tests: `cd server && npm test` (ledger, feed, actions: 25 tests) and `cd app && npm test` (layout, pages, menu: 12 tests).
+Tests: `cd server && npm test` (ledger, feed, actions, resting orders: 35 tests) and `cd app && npm test` (layout, pages, menu: 17 tests).
 
-The demo portfolio is stored in `server/data/fills.json`; delete that file to re-seed it.
+The demo portfolio is stored in `server/data/fills.json` (resting orders in `orders.json`); delete them to re-seed.
 
 ## How PnL is computed
 
@@ -104,7 +151,7 @@ none of that pre-hackathon spike code is used here. Written with AI assistance (
 
 ## Roadmap for the week
 
-1. ~~Confirm page + 5-second undo + sandbox orders for halve / close~~ (done Day 2); next: cancel all, stop, take-profit, price alerts.
+1. ~~Confirm page + 5-second undo + sandbox orders for halve / close~~ (done Day 2); ~~cancel all, stop, take-profit~~ (Day 2b); next: price alerts.
 2. Hold-to-talk voice commands (local faster-whisper) that only ever produce a confirm page.
 3. Risk page: distance to stop / expiry for Coinbase futures, 24h sparkline.
 4. Demo video.

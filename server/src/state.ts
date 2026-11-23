@@ -2,7 +2,8 @@
 
 import type { FeedSnapshot } from './feed.ts'
 import type { PaperLedger } from './ledger.ts'
-import type { ActionState } from './actions.ts'
+import type { ActionState, ActionKind } from './actions.ts'
+import type { PaperOrderBook } from './orders.ts'
 
 export type Row = {
   product: string
@@ -12,6 +13,8 @@ export type Row = {
   qty: number
   avg: number | null
   upnl: number | null // after estimated exit fee
+  stop: number | null // resting paper stop-loss trigger
+  take: number | null // resting paper take-profit trigger
 }
 export type DeskState = {
   t: number
@@ -28,8 +31,8 @@ export type DeskState = {
 export type ActionView = {
   id: string
   status: ActionState['status']
-  kind: 'halve' | 'close'
-  sym: string
+  kind: ActionKind
+  sym: string // '' for cancelAll
   side: 'BUY' | 'SELL'
   qty: number
   estPrice: number
@@ -41,6 +44,11 @@ export type ActionView = {
   fillPrice: number | null // filled only
   reason: string | null // failed only
   venue: 'sandbox' | 'production'
+  refPrice: number // exit price seen at preview
+  trigger: number | null // stop / take
+  replaces: number | null // stop / take: trigger of the order it replaces
+  affected: number | null // cancelAll: orders to cancel (proposed) or cancelled (placed)
+  auto: boolean // a resting order fired by itself
 }
 
 export function actionView(s: ActionState | null, now: number, venue: ActionView['venue'] = 'sandbox'): ActionView | null {
@@ -50,7 +58,7 @@ export function actionView(s: ActionState | null, now: number, venue: ActionView
     id: p.id,
     status: s.status,
     kind: p.kind,
-    sym: p.product.replace(/-USD$/, ''),
+    sym: p.product === '*' ? '' : p.product.replace(/-USD$/, ''),
     side: p.side,
     qty: p.qty,
     estPrice: p.estPrice,
@@ -62,6 +70,11 @@ export function actionView(s: ActionState | null, now: number, venue: ActionView
     fillPrice: s.status === 'filled' ? s.fill.price : null,
     reason: s.status === 'failed' ? s.reason : null,
     venue,
+    refPrice: p.refPrice,
+    trigger: p.trigger,
+    replaces: p.replaces,
+    affected: s.status === 'placed' && p.kind === 'cancelAll' ? s.affected : p.affected,
+    auto: p.auto,
   }
 }
 
@@ -72,7 +85,7 @@ export function buildState(
   dayStart: number,
   dayOpen: Record<string, number>,
   now: number,
-  extra: { openOrders?: number; alerts?: number; action?: ActionState | null; venue?: ActionView['venue'] } = {},
+  extra: { book?: PaperOrderBook; alerts?: number; action?: ActionState | null; venue?: ActionView['venue'] } = {},
 ): DeskState {
   const quotes: Record<string, { bid: number; ask: number }> = {}
   for (const [p, t] of Object.entries(snap.ticks)) quotes[p] = { bid: t.bid, ask: t.ask }
@@ -89,6 +102,8 @@ export function buildState(
       qty: pos?.qty ?? 0,
       avg: pos?.avgPrice ?? null,
       upnl: pos?.unrealized ?? null,
+      stop: extra.book?.find(p, 'stop')?.trigger ?? null,
+      take: extra.book?.find(p, 'take')?.trigger ?? null,
     })
   }
   let day: DeskState['day'] = { pnl: null, pct: null }
@@ -105,7 +120,7 @@ export function buildState(
     feed: { status: snap.status, ageMs: snap.lastBeat ? now - snap.lastBeat : null },
     day,
     rows,
-    openOrders: extra.openOrders ?? 0,
+    openOrders: extra.book?.size ?? 0,
     alerts: extra.alerts ?? 0,
     action: actionView(extra.action ?? null, now, extra.venue),
   }

@@ -145,3 +145,69 @@ test('context menu: <= 10 items, labels <= 32 UTF-8 bytes, ids non-zero and uniq
   assert.equal(menuAction(MENU_LANG, ['BTC', 'ETH']), null)
   assert.equal(menuAction(31, ['BTC', 'ETH']), null)
 })
+
+// ---- stop / take-profit / cancel all (Day 2b) ----
+const stop: ActionView = {
+  ...act, kind: 'stop', qty: 0.02, estPrice: 59780.2, trigger: 59780.2, refPrice: 61000.2, estFee: 9.56, estNet: 1186.04,
+  exposureBefore: 0.02, exposureAfter: 0, replaces: null, affected: null, auto: false,
+}
+const cancelAll: ActionView = { ...act, kind: 'cancelAll', sym: '', qty: 0, estPrice: 0, estFee: 0, estNet: 0, refPrice: 0, trigger: null, affected: 3, auto: false }
+
+test('stop / take / cancel-all pages fit in every status, en + zh', () => {
+  const take: ActionView = { ...stop, kind: 'take', trigger: 1771.6, estPrice: 1771.6, refPrice: 1720, sym: 'ETH', qty: 0.75, replaces: 1760.2 }
+  const short: ActionView = { ...stop, side: 'BUY', trigger: 62220, refPrice: 61001, estNet: -1254.4, exposureBefore: -0.02 }
+  const all = [stop, take, short, cancelAll]
+  for (const lang of ['en', 'zh'] as const) {
+    for (const v0 of all) {
+      for (const v of [v0, { ...v0, status: 'armed' as const, remainMs: 2100 }, { ...v0, status: 'placed' as const }, { ...v0, status: 'undone' as const }]) {
+        for (const p of [confirmPage(v, lang), undoPage(v, lang), resultPage(v, lang)]) assert.deepEqual(overflows(p), [], `${lang} ${v.kind} ${v.status}`)
+      }
+    }
+    const hit = resultPage({ ...stop, status: 'filled', auto: true, fillPrice: 59700 }, lang)
+    assert.deepEqual(overflows(hit), [])
+  }
+})
+
+test('stop confirm page states the trigger, its side of the book and distance; cancel-all says positions stay', () => {
+  const by = (p: ReturnType<typeof confirmPage>) => Object.fromEntries(p.texts.map((t) => [t.name, t.content]))
+  const en = by(confirmPage(stop, 'en'))
+  assert.equal(en.title, 'Stop-loss on BTC?')
+  assert.equal(en.order, 'Sell 0.020 BTC if bid ≤ 59,780 (−2.0%)')
+  assert.equal(en.money, 'You would get ≈ 1,186.04 USD')
+  assert.match(en.fee, /fires one market order/)
+  assert.match(by(confirmPage({ ...stop, replaces: 59500 }, 'en')).fee, /replaces 59,500/)
+  const zh = by(confirmPage(stop, 'zh'))
+  assert.equal(zh.order, '买一价 ≤ 59,780（−2.0%）时卖出 0.020 BTC')
+  // short position: stop is a buy above the ask
+  assert.equal(by(confirmPage({ ...stop, side: 'BUY', trigger: 62220, refPrice: 61001 }, 'en')).order, 'Buy 0.020 BTC if ask ≥ 62,220 (+2.0%)')
+  const c = by(confirmPage(cancelAll, 'en'))
+  assert.equal(c.title, 'Cancel all 3 open orders?')
+  assert.match(c.order, /Positions stay/)
+  assert.equal(by(resultPage({ ...cancelAll, status: 'placed' }, 'zh')).title, '已撤销 3 张挂单。')
+})
+
+test('a stop that fires by itself says so on the result page', () => {
+  const p = resultPage({ ...stop, status: 'filled', auto: true, fillPrice: 59700 }, 'en')
+  assert.equal(p.texts[0].content, 'Stop hit: sold 0.020 BTC at 59,700')
+  assert.equal(pageKind({ ...real, action: { ...stop, status: 'placed' } }), 'result')
+})
+
+test('worst line shows the distance to a resting stop instead of the fee note', () => {
+  const rows = real.rows.map((r) => (r.sym === 'BTC' ? { ...r, stop: 59780 } : r))
+  const w = pnlPage({ ...real, rows, openOrders: 1 }, 'en').texts.find((t) => t.name === 'worst')!.content
+  assert.match(w, /stop 59,780 \(−2\.4%\)/)
+  assert.match(pnlPage({ ...real, rows }, 'zh').texts.find((t) => t.name === 'worst')!.content, /止损 59,780（−2\.4%）/)
+})
+
+test('full menu: 2 symbols x 4 actions + cancel all + language = exactly 10, all decode', () => {
+  for (const lang of ['en', 'zh'] as const) {
+    const m = menuItems(['BTC', 'ETH'], lang)
+    assert.equal(m.length, 10)
+    for (const x of m) assert.ok(new TextEncoder().encode(x.itemName).length <= 32, x.itemName)
+    for (const x of m) if (x.itemID !== MENU_LANG) assert.ok(menuAction(x.itemID, ['BTC', 'ETH']), String(x.itemID))
+  }
+  assert.deepEqual(menuAction(13, ['BTC', 'ETH']), { kind: 'stop', sym: 'BTC' })
+  assert.deepEqual(menuAction(24, ['BTC', 'ETH']), { kind: 'take', sym: 'ETH' })
+  assert.deepEqual(menuAction(80, ['BTC', 'ETH']), { kind: 'cancelAll', sym: null })
+  assert.ok(menuItems(['BTC', 'ETH', 'SOL', 'XRP'], 'zh').length <= 10)
+})

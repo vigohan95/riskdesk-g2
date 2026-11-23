@@ -2,7 +2,9 @@
 //   GET  /api/state    one snapshot
 //   GET  /api/stream   Server-Sent Events: on every price change (<= 1/s), every action change,
 //                      and once per second of an undo countdown
-//   POST /api/preview  {kind: 'halve'|'close', product}  -> priced proposal, nothing sent
+//   POST /api/preview  {kind: 'halve'|'close'|'stop'|'take', product} or {kind: 'cancelAll'} -> priced proposal, nothing sent
+//                      stop / take place a paper resting order (2% / 3% from the exit price, STOP_PCT / TAKE_PCT env);
+//                      it fires one market order when the live bid/ask crosses it
 //   POST /api/confirm  {id}  -> armed, order goes out after 5 s unless undone
 //   POST /api/undo     {id}  -> cancelled inside the window (or a proposal dismissed)
 //   POST /api/dismiss  {id}  -> clear a finished action from the glasses early
@@ -13,16 +15,19 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { TickerFeed } from './feed.ts'
 import { utcDayStart } from './ledger.ts'
 import { priceAt } from './candles.ts'
-import { DEMO_SEED, resolveSeed, FillStore, buildLedger } from './portfolio.ts'
+import { DEMO_SEED, resolveSeed, FillStore, JsonStore, buildLedger } from './portfolio.ts'
 import { buildState } from './state.ts'
-import { ActionDesk, coinbaseOrders, SANDBOX, type ActionKind, type ActionState } from './actions.ts'
+import { ActionDesk, coinbaseOrders, SANDBOX, ACTION_KINDS, type ActionKind, type ActionState } from './actions.ts'
+import { PaperOrderBook, STOP_PCT, TAKE_PCT, type Resting } from './orders.ts'
 
 const PRODUCTS = (process.env.PRODUCTS ?? 'BTC-USD,ETH-USD').split(',')
 const HOST = process.env.HOST ?? '127.0.0.1'
 const PORT = Number(process.env.PORT ?? 8787)
 /** How long a finished action (filled / undone / failed) stays on the glasses before the PnL page returns. */
 const RESULT_MS = 4000
-const store = new FillStore(new URL('../data/fills.json', import.meta.url).pathname.replace(/^\/(\w:)/, '$1'))
+const dataFile = (name: string) => new URL(`../data/${name}`, import.meta.url).pathname.replace(/^\/(\w:)/, '$1')
+const orderStore = new JsonStore<Resting[]>(dataFile('orders.json'), [])
+const store = new FillStore(dataFile('fills.json'))
 
 async function main() {
   let fills = store.load()
@@ -32,6 +37,9 @@ async function main() {
     console.log(`seeded demo portfolio: ${fills.map((f) => `${f.side} ${f.qty} ${f.product} @ ${f.price}`).join('; ')}`)
   }
   const ledger = buildLedger(fills)
+  const book = new PaperOrderBook(orderStore.load())
+  for (const p of new Set(book.list().map((o) => o.product))) book.reconcile(p, ledger.qty(p))
+  const saveBook = () => orderStore.save(book.list())
 
   let dayStart = utcDayStart(Date.now())
   let dayOpen: Record<string, number> = {}
@@ -50,7 +58,7 @@ async function main() {
   let current: ActionState | null = null
   let finishedAt = 0
   const visible = () => (current && isFinal(current) && Date.now() - finishedAt > RESULT_MS ? null : current)
-  const state = () => buildState(feed.snapshot(), ledger, PRODUCTS, dayStart, dayOpen, Date.now(), { action: visible(), venue: (process.env.ORDERS_BASE ?? SANDBOX) === SANDBOX ? 'sandbox' : 'production' })
+  const state = () => buildState(feed.snapshot(), ledger, PRODUCTS, dayStart, dayOpen, Date.now(), { book, action: visible(), venue: (process.env.ORDERS_BASE ?? SANDBOX) === SANDBOX ? 'sandbox' : 'production' })
   const push = () => {
     const data = `data: ${JSON.stringify(state())}
 
@@ -59,11 +67,17 @@ async function main() {
   }
   const desk = new ActionDesk({
     ledger,
+    book,
+    stopPct: Number(process.env.STOP_PCT ?? STOP_PCT),
+    takePct: Number(process.env.TAKE_PCT ?? TAKE_PCT),
     quote: (p) => { const t = feed.snapshot().ticks[p]; return t && feed.snapshot().status === 'live' ? { bid: t.bid, ask: t.ask } : null },
     placeOrder: coinbaseOrders(process.env.ORDERS_BASE ?? SANDBOX),
     onFill: (f) => { store.save(ledger.fills); console.log(`filled ${f.side} ${f.qty} ${f.product} @ ${f.price}`) },
     onChange: (s) => {
-      if (current && current.p.id !== s.p.id && !isFinal(current)) return // a stale action's late event
+      if (s.status === 'placed' || s.status === 'filled') saveBook()
+      // A resting order that fires while the user looks at a confirm / undo page is logged and booked but
+      // does not replace that page; the PnL page and the footer count show it once the page closes.
+      if (current && current.p.id !== s.p.id && !isFinal(current)) { console.log(`action ${s.p.id.slice(0, 8)} ${s.p.kind} ${s.p.product}: ${s.status} (behind the open page)`); push(); return }
       current = s
       if (isFinal(s)) { finishedAt = Date.now(); setTimeout(push, RESULT_MS + 50) }
       console.log(`action ${s.p.id.slice(0, 8)} ${s.p.kind} ${s.p.product}: ${s.status}${s.status === 'failed' ? ` (${s.reason})` : ''}`)
@@ -77,15 +91,18 @@ async function main() {
     const sec = Math.ceil((current.fireAt - Date.now()) / 1000)
     if (sec !== lastSec) { lastSec = sec; push() }
   }, 100)
-  feed.onUpdate(push)
+  feed.onUpdate(() => {
+    for (const p of new Set(book.list().map((o) => o.product))) void desk.onQuote(p)
+    push()
+  })
   feed.start()
 
   const actions: Record<string, (b: any) => unknown> = {
     '/api/preview': (b) => {
       if (current && (current.status === 'armed' || current.status === 'sending')) throw new HttpError(409, 'another action is about to execute')
       if (current?.status === 'proposed') desk.undo(current.p.id)
-      if (b.kind !== 'halve' && b.kind !== 'close') throw new HttpError(400, 'kind must be halve or close')
-      return desk.preview(b.kind as ActionKind, String(b.product))
+      if (!ACTION_KINDS.includes(b.kind)) throw new HttpError(400, `kind must be one of ${ACTION_KINDS.join(', ')}`)
+      return desk.preview(b.kind as ActionKind, String(b.product ?? '*'))
     },
     '/api/confirm': (b) => desk.confirm(String(b.id)),
     '/api/undo': (b) => desk.undo(String(b.id)),
@@ -131,7 +148,7 @@ class HttpError extends Error {
   status: number
   constructor(status: number, msg: string) { super(msg); this.status = status }
 }
-const isFinal = (s: ActionState) => s.status === 'filled' || s.status === 'undone' || s.status === 'failed'
+const isFinal = (s: ActionState) => s.status === 'filled' || s.status === 'placed' || s.status === 'undone' || s.status === 'failed'
 function readJson(req: IncomingMessage): Promise<any> {
   return new Promise((resolve, reject) => {
     let body = ''

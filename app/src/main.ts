@@ -120,7 +120,8 @@ function connect() {
 connect()
 
 // Input:
-//   PnL page     context menu -> Halve / Close <sym>, or switch language; double-tap also switches language
+//   PnL page     context menu -> Halve / Close / Stop-loss / Take-profit <sym>, Cancel all orders, or switch language;
+//                double-tap also switches language
 //   confirm page tap = confirm (arms the 5 s undo window), double-tap = back
 //   undo page    tap = undo
 //   result page  tap = back
@@ -130,7 +131,7 @@ bridge.onEvenHubEvent((e) => {
     console.log('MENU', item)
     if (item === MENU_LANG) { toggleLang(); return }
     const a = menuAction(item, SYMS)
-    if (a) post('/api/preview', { kind: a.kind, product: `${a.sym}-USD` }).catch(refuse)
+    if (a) post('/api/preview', a.sym ? { kind: a.kind, product: `${a.sym}-USD` } : { kind: a.kind }).catch(refuse)
     return
   }
   const type = e.textEvent?.eventType ?? e.sysEvent?.eventType
