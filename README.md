@@ -6,7 +6,7 @@ Heads Up: Even Realities G2 hackathon, track 03 Exchanges & Stocks (Coinbase).
 
 ![PnL page, live Coinbase prices](docs/shots/day1_pnl_en.png)
 
-## What works today (Day 1)
+## What works today (Day 1-2)
 
 - **Live Coinbase prices** over the public Advanced Trade WebSocket (`ticker` + `heartbeats`, no API key).
   The backend sends the glasses at most one update per second, and only when a number on screen would change.
@@ -24,17 +24,59 @@ Heads Up: Even Realities G2 hackathon, track 03 Exchanges & Stocks (Coinbase).
 
 Screenshots are the simulator's 576x288 glasses buffer, drawn green-on-black at 2x.
 
+### One-tap actions with a 5-second undo (Day 2)
+
+Open the glasses' context menu on the positions page: **Halve BTC / Close BTC / Halve ETH / Close ETH / language**.
+
+1. **Confirm page** - what will be sold, at roughly which price (bid for a sell, ask for a buy), the fee, what you get,
+   and the position before -> after. Every number comes from the backend; the glasses only lay it out.
+   Tap = confirm, double-tap = back.
+2. **Undo page** - nothing has been sent yet. Five dots count down once per second; tap anywhere to undo.
+3. **Result page** - after the window one Coinbase Advanced Trade *Create Order* request goes out
+   (public sandbox by default) with `client_order_id` = the action id, so a double tap or a retry can never create two orders.
+   The fill is booked in the paper ledger at the bid/ask *at execution time*, and the page says it was a sandbox order.
+
+Safety checks at confirm time: a preview older than 30 s, or whose price moved more than 1%, is refused
+("look again") instead of executed. Only one action can be armed at a time. The context menu exists only on the
+positions page, so it can never open on top of a confirm or undo page.
+
+| Context menu | Confirm | Undo window |
+|---|---|---|
+| ![menu](docs/shots/day2_menu_en.png) | ![confirm](docs/shots/day2_confirm_en.png) | ![undo](docs/shots/day2_undo_en.png) |
+
+| Close ETH (zh) | Filled (sandbox) | Back on positions: ETH flat, day PnL updated |
+|---|---|---|
+| ![close](docs/shots/day2_confirm_close_zh.png) | ![filled](docs/shots/day2_filled_zh.png) | ![after](docs/shots/day2_after_zh.png) |
+
+A confirm on a stale preview: ![expired](docs/shots/day2_expired_en.png)
+
+All of the above are simulator screenshots of real runs driven by the simulator's automation API
+(context_menu / down / click) against the live Coinbase feed; the backend log of the same run:
+
+```
+action 6054f04e halve BTC-USD: proposed
+action 6054f04e halve BTC-USD: armed
+action 6054f04e halve BTC-USD: undone
+action 7a7ec95f close ETH-USD: proposed
+action 7a7ec95f close ETH-USD: armed
+action 7a7ec95f close ETH-USD: sending
+filled SELL 0.75 ETH-USD @ 1722.8
+action 7a7ec95f close ETH-USD: filled
+```
+
 ## Run it
 
 Needs Node 22.18+ (TypeScript runs natively, the backend has zero dependencies).
 
 ```bash
-cd server && npm start            # http://127.0.0.1:8787  (/api/state, /api/stream)
+cd server && npm start            # http://127.0.0.1:8787  (/api/state, /api/stream, POST /api/preview|confirm|undo|dismiss)
 cd app && npm install && npm run dev
 npx evenhub-simulator http://127.0.0.1:5173/
 ```
 
-Tests: `cd server && npm test` (ledger + feed, 17 tests) and `cd app && npm test` (layout, 7 tests).
+Tests: `cd server && npm test` (ledger, feed, actions: 25 tests) and `cd app && npm test` (layout, pages, menu: 12 tests).
+
+The demo portfolio is stored in `server/data/fills.json`; delete that file to re-seed it.
 
 ## How PnL is computed
 
@@ -45,6 +87,8 @@ Tests: `cd server && npm test` (ledger + feed, 17 tests) and `cd app && npm test
 - If any held product has no live quote, day PnL shows `—`, never a stale or zero number.
 
 ## Display rules (measured in the simulator)
+
+- A tap arrives as `CLICK_EVENT` = 0, the protobuf default, so `eventType` is usually omitted: the simulator sends `{sysEvent: {eventSource: 1}}`. Treat a missing type as a click.
 
 - Line height 28 px; a text container needs `lines x 28 + 2 x padding` (+2 with a border) or a scrollbar appears.
 - `textContainerUpgrade` changes text and brightness but never size, so the page geometry is fixed and does not depend on data.
@@ -60,7 +104,7 @@ none of that pre-hackathon spike code is used here. Written with AI assistance (
 
 ## Roadmap for the week
 
-1. Confirm page + 5-second undo + Coinbase Advanced Trade order calls (sandbox) for: cancel all, halve, stop, take-profit.
+1. ~~Confirm page + 5-second undo + sandbox orders for halve / close~~ (done Day 2); next: cancel all, stop, take-profit, price alerts.
 2. Hold-to-talk voice commands (local faster-whisper) that only ever produce a confirm page.
 3. Risk page: distance to stop / expiry for Coinbase futures, 24h sparkline.
 4. Demo video.

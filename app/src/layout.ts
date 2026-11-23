@@ -32,6 +32,33 @@ export type DeskState = {
   rows: Row[]
   openOrders: number
   alerts: number
+  action: ActionView | null
+}
+export type ActionView = {
+  id: string
+  status: 'proposed' | 'armed' | 'undone' | 'sending' | 'filled' | 'failed'
+  kind: 'halve' | 'close'
+  sym: string
+  side: 'BUY' | 'SELL'
+  qty: number
+  estPrice: number
+  estFee: number
+  estNet: number
+  exposureBefore: number
+  exposureAfter: number
+  remainMs: number | null
+  fillPrice: number | null
+  reason: string | null
+  venue: 'sandbox' | 'production'
+}
+export type PageKind = 'pnl' | 'confirm' | 'undo' | 'result'
+export function pageKind(s: DeskState | null): PageKind {
+  switch (s?.action?.status) {
+    case 'proposed': return 'confirm'
+    case 'armed': case 'sending': return 'undo'
+    case 'filled': case 'undone': case 'failed': return 'result'
+    default: return 'pnl'
+  }
 }
 
 const MINUS = '−'
@@ -132,4 +159,117 @@ export function overflows(p: Page): string[] {
     if (t.y + t.h > H) bad.push(`${t.name}: bottom ${t.y + t.h} > ${H}`)
   }
   return bad
+}
+
+// ---------------------------------------------------------------------------------------------
+// Action pages. One question per page, the money number is the brightest line, and the only
+// event-capture container is the footer, which always says what a tap does on this page.
+
+const A = {
+  en: {
+    title: (v: ActionView) => `${v.kind === 'close' ? 'Close' : 'Halve'} ${v.sym}?`,
+    order: (v: ActionView) => `${v.side === 'SELL' ? 'Sell' : 'Buy'} ${fmtQty(v.qty)} ${v.sym} at ≈ ${fmtNum(v.estPrice, priceDigits(v.estPrice))} (${v.side === 'SELL' ? 'bid' : 'ask'})`,
+    money: (v: ActionView) => `${v.estNet >= 0 ? 'You get' : 'You pay'} ≈ ${fmtNum(Math.abs(v.estNet), 2)} USD`,
+    fee: (v: ActionView) => `fee ${fmtNum(v.estFee, 2)}`,
+    pos: (v: ActionView) => `Position ${fmtQty(v.exposureBefore)} → ${fmtQty(v.exposureAfter)} ${v.sym}`,
+    confirmFoot: 'tap = confirm (5 s to undo) · double-tap = back',
+    armed: (v: ActionView, s: number) => `${v.side === 'SELL' ? 'Selling' : 'Buying'} ${fmtQty(v.qty)} ${v.sym} in ${s} s`,
+    sending: (v: ActionView) => `Sending ${v.side === 'SELL' ? 'sell' : 'buy'} ${fmtQty(v.qty)} ${v.sym}…`,
+    undoFoot: 'tap = UNDO · nothing is sent until the dots run out',
+    sendingFoot: 'sent, waiting for the exchange',
+    filled: (v: ActionView) => `Done: ${v.side === 'SELL' ? 'sold' : 'bought'} ${fmtQty(v.qty)} ${v.sym} at ${fmtNum(v.fillPrice!, priceDigits(v.fillPrice!))}`,
+    undone: 'Undone. Nothing was sent.',
+    failed: 'Not executed. Nothing changed.',
+    resultFoot: 'tap = back to positions',
+    sandbox: 'Coinbase sandbox order, booked in the paper ledger',
+  },
+  zh: {
+    title: (v: ActionView) => `${v.sym} ${v.kind === 'close' ? '全部平仓' : '减半'}？`,
+    order: (v: ActionView) => `${v.side === 'SELL' ? '卖出' : '买入'} ${fmtQty(v.qty)} ${v.sym}，约 ${fmtNum(v.estPrice, priceDigits(v.estPrice))}（${v.side === 'SELL' ? '买一价' : '卖一价'}）`,
+    money: (v: ActionView) => `${v.estNet >= 0 ? '到手' : '付出'}约 ${fmtNum(Math.abs(v.estNet), 2)} USD`,
+    fee: (v: ActionView) => `手续费 ${fmtNum(v.estFee, 2)}`,
+    pos: (v: ActionView) => `持仓 ${fmtQty(v.exposureBefore)} → ${fmtQty(v.exposureAfter)} ${v.sym}`,
+    confirmFoot: '单击 = 确认（5 秒内可撤回）· 双击 = 返回',
+    armed: (v: ActionView, s: number) => `${s} 秒后${v.side === 'SELL' ? '卖出' : '买入'} ${fmtQty(v.qty)} ${v.sym}`,
+    sending: (v: ActionView) => `正在发送${v.side === 'SELL' ? '卖' : '买'}单 ${fmtQty(v.qty)} ${v.sym}…`,
+    undoFoot: '单击 = 撤回 · 圆点走完之前什么都不会发出',
+    sendingFoot: '已发出，等交易所回复',
+    filled: (v: ActionView) => `完成：${v.side === 'SELL' ? '卖出' : '买入'} ${fmtQty(v.qty)} ${v.sym}，成交 ${fmtNum(v.fillPrice!, priceDigits(v.fillPrice!))}`,
+    undone: '已撤回，什么都没发出。',
+    failed: '没有执行，持仓没变。',
+    resultFoot: '单击 = 回到持仓',
+    sandbox: 'Coinbase 沙盒下单，已记入纸面账本',
+  },
+}
+
+/** ●●●●○ style: filled dots = whole seconds left of a 5 s window. */
+export function dots(remainMs: number, total = 5): string {
+  const n = Math.max(0, Math.min(total, Math.ceil(remainMs / 1000)))
+  return '●'.repeat(n) + '○'.repeat(total - n)
+}
+
+const box = (id: number, name: string, y: number, content: string, color: number, extra: Partial<Text> = {}): Text =>
+  ({ id, name, x: 0, y, w: W, h: boxH(1), content: pxTruncate(content, W - 2 * PAD), color, ...extra })
+
+export function confirmPage(v: ActionView, lang: Lang): Page {
+  const t = A[lang]
+  return {
+    texts: [
+      box(1, 'title', 0, t.title(v), 4, { h: boxH(1) + 2, border: true }),
+      box(2, 'order', 54, t.order(v), 3),
+      box(3, 'money', 98, t.money(v), 4),
+      box(4, 'fee', 142, `${t.fee(v)} · ${t.pos(v)}`, 2),
+      box(5, 'foot', FOOTER_Y, t.confirmFoot, 3, { capture: true }),
+    ],
+  }
+}
+
+export function undoPage(v: ActionView, lang: Lang): Page {
+  const t = A[lang]
+  const sending = v.status === 'sending'
+  const sec = Math.max(0, Math.ceil((v.remainMs ?? 0) / 1000))
+  return {
+    texts: [
+      box(1, 'title', 0, sending ? t.sending(v) : t.armed(v, sec), 4, { h: boxH(1) + 2, border: true }),
+      box(2, 'dots', 70, sending ? '' : dots(v.remainMs ?? 0), 4),
+      box(3, 'money', 126, t.money(v), 2),
+      box(4, 'foot', FOOTER_Y, sending ? t.sendingFoot : t.undoFoot, 4, { capture: true }),
+    ],
+  }
+}
+
+export function resultPage(v: ActionView | null, lang: Lang, note?: string): Page {
+  const t = A[lang]
+  let line = note ?? ''
+  let detail = ''
+  let venue = ''
+  if (v?.status === 'filled') { line = t.filled(v); detail = t.pos(v); if (v.venue === 'sandbox') venue = t.sandbox }
+  else if (v?.status === 'undone') line = t.undone
+  else if (v?.status === 'failed') { line = t.failed; detail = v.reason ?? '' }
+  return {
+    texts: [
+      box(1, 'title', 0, line, 4, { h: boxH(1) + 2, border: true }),
+      box(2, 'detail', 54, detail, 2),
+      box(4, 'venue', 98, venue, 2),
+      box(3, 'foot', FOOTER_Y, t.resultFoot, 3, { capture: true }),
+    ],
+  }
+}
+
+/** Context-menu entries of the PnL page. IDs encode the action so a click needs no lookup table. */
+export const MENU_LANG = 90
+export function menuItems(syms: string[], lang: Lang): { itemID: number; itemName: string }[] {
+  const items: { itemID: number; itemName: string }[] = []
+  syms.slice(0, 4).forEach((sym, i) => {
+    items.push({ itemID: 10 * (i + 1) + 1, itemName: lang === 'zh' ? `${sym} 减半` : `Halve ${sym}` })
+    items.push({ itemID: 10 * (i + 1) + 2, itemName: lang === 'zh' ? `${sym} 全部平仓` : `Close ${sym}` })
+  })
+  items.push({ itemID: MENU_LANG, itemName: lang === 'zh' ? 'English' : '中文' })
+  return items
+}
+export function menuAction(itemID: number, syms: string[]): { kind: 'halve' | 'close'; sym: string } | null {
+  const i = Math.floor(itemID / 10) - 1
+  const k = itemID % 10
+  if (i < 0 || i >= syms.length || (k !== 1 && k !== 2)) return null
+  return { kind: k === 1 ? 'halve' : 'close', sym: syms[i] }
 }

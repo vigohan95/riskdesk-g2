@@ -13,6 +13,7 @@ const real: DeskState = {
     { product: 'ETH-USD', sym: 'ETH', price: 1719.94, chg24: 2.32621784345922, qty: 0.75, avg: 1691.15, upnl: 11.10918 },
   ],
   openOrders: 0,
+  action: null,
   alerts: 0,
 }
 
@@ -68,4 +69,79 @@ test('geometry never depends on data (upgrade can change text, not size)', () =>
   const base = geo(pnlPage(null, 'en'))
   assert.deepEqual(geo(pnlPage(real, 'en')), base)
   assert.deepEqual(geo(pnlPage({ ...real, rows: real.rows.slice(0, 1) }, 'zh')), base)
+})
+
+// ---- action pages (Day 2) ----
+import { confirmPage, undoPage, resultPage, pageKind, dots, menuItems, menuAction, MENU_LANG, type ActionView } from '../src/layout.ts'
+
+// Shape of a real /api/preview -> /api/state action, 2026-11-23 (BTC halve at the live bid).
+const act: ActionView = {
+  id: '0f7c', status: 'proposed', kind: 'halve', sym: 'BTC', side: 'SELL', qty: 0.01, estPrice: 61238.4, estFee: 4.899072,
+  estNet: 607.484928, exposureBefore: 0.02, exposureAfter: 0.01, remainMs: null, fillPrice: null, reason: null, venue: 'sandbox',
+}
+
+test('action pages fit, en + zh, every status', () => {
+  const cases: ActionView[] = [
+    act,
+    { ...act, kind: 'close', qty: 0.75, sym: 'ETH', estPrice: 1719.9, estNet: 1279.6, exposureBefore: 0.75, exposureAfter: 0 },
+    { ...act, status: 'armed', remainMs: 3400 },
+    { ...act, status: 'sending' },
+    { ...act, status: 'filled', fillPrice: 61240.1 },
+    { ...act, status: 'undone' },
+    { ...act, status: 'failed', reason: 'price moved >1%, look again' },
+  ]
+  for (const lang of ['en', 'zh'] as const) {
+    for (const v of cases) {
+      for (const p of [confirmPage(v, lang), undoPage(v, lang), resultPage(v, lang)]) assert.deepEqual(overflows(p), [], `${lang} ${v.status}`)
+    }
+    assert.deepEqual(overflows(resultPage(null, lang, 'no ETH-USD position')), [])
+  }
+})
+
+test('confirm page: money line is brightest, footer is the only capture layer and says what a tap does', () => {
+  const p = confirmPage(act, 'en')
+  const by = Object.fromEntries(p.texts.map((t) => [t.name, t]))
+  assert.equal(by.money.content, 'You get ≈ 607.48 USD')
+  assert.equal(by.money.color, 4)
+  assert.match(by.order.content, /Sell 0\.010 BTC at ≈ 61,238 \(bid\)/)
+  assert.deepEqual(p.texts.filter((t) => t.capture).map((t) => t.name), ['foot'])
+  assert.match(confirmPage(act, 'zh').texts[2].content, /^到手约 607\.48 USD$/)
+})
+
+test('filled result says it was a sandbox order', () => {
+  for (const lang of ['en', 'zh'] as const) {
+    const p = resultPage({ ...act, status: 'filled', fillPrice: 61240.1 }, lang)
+    assert.match(p.texts.find((t) => t.name === 'venue')!.content, /sandbox|沙盒/)
+    assert.equal(resultPage({ ...act, status: 'filled', fillPrice: 61240.1, venue: 'production' }, lang).texts.find((t) => t.name === 'venue')!.content, '')
+  }
+})
+
+test('undo countdown dots and page kinds', () => {
+  assert.equal(dots(5000), '●●●●●')
+  assert.equal(dots(4001), '●●●●●')
+  assert.equal(dots(4000), '●●●●○')
+  assert.equal(dots(1), '●○○○○')
+  assert.equal(dots(0), '○○○○○')
+  const st = (status: ActionView['status'] | null) => ({ ...real, action: status ? { ...act, status } : null })
+  assert.equal(pageKind(st(null)), 'pnl')
+  assert.equal(pageKind(st('proposed')), 'confirm')
+  assert.equal(pageKind(st('armed')), 'undo')
+  assert.equal(pageKind(st('sending')), 'undo')
+  for (const s of ['filled', 'undone', 'failed'] as const) assert.equal(pageKind(st(s)), 'result')
+})
+
+test('context menu: <= 10 items, labels <= 32 UTF-8 bytes, ids non-zero and unique, ids decode back', () => {
+  for (const lang of ['en', 'zh'] as const) {
+    const m = menuItems(['BTC', 'ETH'], lang)
+    assert.ok(m.length <= 10)
+    assert.equal(new Set(m.map((x) => x.itemID)).size, m.length)
+    for (const x of m) {
+      assert.ok(x.itemID > 0)
+      assert.ok(new TextEncoder().encode(x.itemName).length <= 32, x.itemName)
+    }
+  }
+  assert.deepEqual(menuAction(11, ['BTC', 'ETH']), { kind: 'halve', sym: 'BTC' })
+  assert.deepEqual(menuAction(22, ['BTC', 'ETH']), { kind: 'close', sym: 'ETH' })
+  assert.equal(menuAction(MENU_LANG, ['BTC', 'ETH']), null)
+  assert.equal(menuAction(31, ['BTC', 'ETH']), null)
 })

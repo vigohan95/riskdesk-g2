@@ -2,6 +2,7 @@
 
 import type { FeedSnapshot } from './feed.ts'
 import type { PaperLedger } from './ledger.ts'
+import type { ActionState } from './actions.ts'
 
 export type Row = {
   product: string
@@ -19,6 +20,49 @@ export type DeskState = {
   rows: Row[]
   openOrders: number
   alerts: number
+  /** The one action in flight (or just finished), or null. The glasses switch page on this. */
+  action: ActionView | null
+}
+
+/** Everything the confirm / undo / result pages show, already computed by the server. */
+export type ActionView = {
+  id: string
+  status: ActionState['status']
+  kind: 'halve' | 'close'
+  sym: string
+  side: 'BUY' | 'SELL'
+  qty: number
+  estPrice: number
+  estFee: number
+  estNet: number
+  exposureBefore: number
+  exposureAfter: number
+  remainMs: number | null // armed only: time left to undo
+  fillPrice: number | null // filled only
+  reason: string | null // failed only
+  venue: 'sandbox' | 'production'
+}
+
+export function actionView(s: ActionState | null, now: number, venue: ActionView['venue'] = 'sandbox'): ActionView | null {
+  if (!s) return null
+  const p = s.p
+  return {
+    id: p.id,
+    status: s.status,
+    kind: p.kind,
+    sym: p.product.replace(/-USD$/, ''),
+    side: p.side,
+    qty: p.qty,
+    estPrice: p.estPrice,
+    estFee: p.estFee,
+    estNet: p.estNet,
+    exposureBefore: p.exposureBefore,
+    exposureAfter: p.exposureAfter,
+    remainMs: s.status === 'armed' ? Math.max(0, s.fireAt - now) : null,
+    fillPrice: s.status === 'filled' ? s.fill.price : null,
+    reason: s.status === 'failed' ? s.reason : null,
+    venue,
+  }
 }
 
 export function buildState(
@@ -28,7 +72,7 @@ export function buildState(
   dayStart: number,
   dayOpen: Record<string, number>,
   now: number,
-  extra: { openOrders?: number; alerts?: number } = {},
+  extra: { openOrders?: number; alerts?: number; action?: ActionState | null; venue?: ActionView['venue'] } = {},
 ): DeskState {
   const quotes: Record<string, { bid: number; ask: number }> = {}
   for (const [p, t] of Object.entries(snap.ticks)) quotes[p] = { bid: t.bid, ask: t.ask }
@@ -63,5 +107,6 @@ export function buildState(
     rows,
     openOrders: extra.openOrders ?? 0,
     alerts: extra.alerts ?? 0,
+    action: actionView(extra.action ?? null, now, extra.venue),
   }
 }
