@@ -139,8 +139,10 @@ The demo portfolio is stored in `server/data/fills.json` (resting orders in `ord
 
 - Line height 28 px; a text container needs `lines x 28 + 2 x padding` (+2 with a border) or a scrollbar appears.
 - `textContainerUpgrade` changes text and brightness but never size, so the page geometry is fixed and does not depend on data.
-- The font is proportional and containers have no alignment: numbers are right-aligned by left-padding with normal and
-  thin (U+2009) spaces, using the firmware glyph widths from `@evenrealities/pretext` (within 1 px).
+- The font is proportional and containers have no alignment: numbers are right-aligned by left-padding with normal
+  spaces, using the firmware glyph widths from `@evenrealities/pretext`. The firmware font has no thin space (U+2009
+  logs `glyph not found` and falls back to a placeholder that real glasses may draw), so only the 5 px space is used,
+  and each column picks the target edge where its lines agree best (3 lines in 5 px steps: right edges within 3 px, the best possible).
 - Brightness levels 1 and 3 render only ~180 vs ~230, too subtle to carry a warning alone, hence the explicit `old` marker.
 
 ## Built during the hackathon

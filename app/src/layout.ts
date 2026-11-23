@@ -1,8 +1,9 @@
 // Pure layout for the 576x288 monochrome display. No SDK imports here so it is unit-testable in Node.
 // Rules measured in the simulator before the hackathon (README "Display rules"):
 // - line height 28 px; a text container needs h = lines x 28 + 2 x padding or a scrollbar appears
-// - no text alignment and a proportional font -> right-align numbers by left-padding with
-//   normal spaces and U+2009 thin spaces, widths taken from the firmware glyph table (pretext)
+// - no text alignment and a proportional font -> right-align numbers by left-padding with normal
+//   spaces (5 px), widths from the firmware glyph table (pretext). The firmware font has no thin
+//   space (U+2009 logs "glyph not found" and falls back to a placeholder), so only real glyphs are used.
 // - a 1 px border eats 2 px of that height (measured 11-23: h=44 + border showed a scrollbar)
 // - one container per column (multi-line), not one per cell: the SDK allows 8 text containers
 // - the footer is pinned at y=244 and is the event-capture layer
@@ -69,7 +70,6 @@ export function pageKind(s: DeskState | null): PageKind {
 
 const MINUS = '−'
 const SP = ' '
-const THIN = ' '
 
 export function fmtNum(x: number, digits: number): string {
   const s = Math.abs(x).toLocaleString('en-US', { minimumFractionDigits: digits, maximumFractionDigits: digits })
@@ -88,26 +88,36 @@ export function fmtQty(q: number): string {
   return fmtNum(q, d)
 }
 
-/** Left-pad `s` with normal + thin spaces so its right edge lands at `w` px (error <= 1 px measured). */
+/** Left-pad `s` with normal spaces so its right edge lands as close to `w` px as 5 px steps allow, never past it. */
 export function rpad(s: string, w: number): string {
-  // getAdvW is in 1/16 px and reports 0 for U+2009, so measure whole strings (kerning included).
-  const sp = getTextWidth(SP)
-  const th = getTextWidth(THIN)
-  const gap = w - getTextWidth(s)
-  if (gap <= 0) return s
+  // Measure whole strings: kerning between the space and the first glyph changes the step.
   let best = s
-  let err = gap
-  for (let a = 0; a * sp <= gap + sp; a++) {
-    for (const b of [Math.floor((gap - a * sp) / th), Math.ceil((gap - a * sp) / th)]) {
-      if (b < 0) continue
-      const cand = SP.repeat(a) + THIN.repeat(b) + s
-      const e = Math.abs(w - getTextWidth(cand))
-      if (e < err) { err = e; best = cand }
-    }
+  let err = Math.abs(w - getTextWidth(s))
+  for (let a = 1; ; a++) {
+    const cand = SP.repeat(a) + s
+    const cw = getTextWidth(cand)
+    if (cw > w) break
+    if (w - cw < err) { err = w - cw; best = cand }
   }
   return best
 }
-const col = (xs: string[], w: number) => xs.map((s) => rpad(s, w)).join('\n')
+
+/**
+ * Right-align a column. Spaces come in 5 px steps, so each line can miss the target by up to 4 px;
+ * try the 5 possible targets w-4..w and keep the one where the lines' right edges agree best.
+ */
+export function alignCol(xs: string[], w: number): string[] {
+  let best: string[] = xs
+  let spread = Infinity
+  for (let t = w; t > w - 5; t--) {
+    const out = xs.map((s) => rpad(s, t))
+    const ws = out.map((s) => getTextWidth(s))
+    const sp = Math.max(...ws) - Math.min(...ws)
+    if (sp < spread) { spread = sp; best = out }
+  }
+  return best
+}
+const col = (xs: string[], w: number) => alignCol(xs, w).join('\n')
 
 const L = {
   en: { stopAt: (px: string, d: string) => `stop ${px} (${d}%)`, today: 'Today', na: '—', live: 'feed ● live', stale: (s: number) => `feed ○ STALE ${s}s · prices frozen`, connecting: 'feed ○ connecting…', offline: 'backend offline · retrying', open: (n: number) => `${n} open`, alerts: (n: number) => `${n} alert${n === 1 ? '' : 's'}`, flat: 'flat', old: 'old', worst: 'Worst', afterFees: 'after fees, if closed now' },

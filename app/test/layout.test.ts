@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { getTextWidth } from '@evenrealities/pretext'
-import { pnlPage, overflows, rpad, fmtNum, signed, type DeskState } from '../src/layout.ts'
+import { pnlPage, overflows, rpad, alignCol, fmtNum, signed, type DeskState } from '../src/layout.ts'
 
 // Shape of a real /api/state response captured 2026-11-23 08:28 UTC.
 const real: DeskState = {
@@ -24,10 +24,21 @@ test('number formatting uses a real minus sign and no "-0.00"', () => {
   assert.equal(signed(0.001, 2), '0.00')
 })
 
-test('rpad lands within 1 px of the target width', () => {
+test('rpad uses only glyphs the firmware font has and never overshoots', () => {
   for (const s of ['61,240', '1,719.9', '+2.8%', '−0.1%', '0.020  −16.63']) {
     const out = rpad(s, 150)
-    assert.ok(Math.abs(getTextWidth(out) - 150) <= 1, `${s}: ${getTextWidth(out)}`)
+    assert.ok(!/[ -​ ]/.test(out), `${s}: thin/odd space`)
+    const w = getTextWidth(out)
+    assert.ok(w <= 150 && w >= 146, `${s}: ${w}`)
+  }
+})
+
+test('alignCol keeps right edges of real price columns within 3 px (3 lines in 5 px steps cannot do better)', () => {
+  // real column inner widths from pnlPage: price 104, 24h 80, position 244
+  const cols: [string[], number][] = [[['61,377', '1,722.6', '—'], 104], [['+2.7%', '+2.4%', '−0.1%'], 80], [['0.020  −13.88', '0.750  +13.27', 'flat'], 244], [['64,310', '1,719.9', '187.42'], 104]]
+  for (const [xs, w] of cols) {
+    const ws = alignCol(xs, w).map((s) => getTextWidth(s))
+    assert.ok(Math.max(...ws) - Math.min(...ws) <= 3 && Math.max(...ws) <= w, `${xs}: ${ws}`)
   }
 })
 
