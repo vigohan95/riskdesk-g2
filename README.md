@@ -6,7 +6,7 @@ Heads Up: Even Realities G2 hackathon, track 03 Exchanges & Stocks (Coinbase).
 
 ![PnL page, live Coinbase prices](docs/shots/day1_pnl_en.png)
 
-## What works today (Day 1-3a)
+## What works today (Day 1-3b)
 
 - **Live Coinbase prices** over the public Advanced Trade WebSocket (`ticker` + `heartbeats`, no API key).
   The backend sends the glasses at most one update per second, and only when a number on screen would change.
@@ -121,7 +121,7 @@ Tested on 108 spoken commands (`server/test/fixtures/voice-108.json`, made on 20
 Windows TTS at 16 kHz, fed in 100 ms chunks like the glasses mic, transcribed by faster-whisper int8 on CPU;
 24 of them are a held-out set that was never looked at while writing the rules):
 
-| Setting (what ships in bold) | right first time | pick the coin on the confirm page | asked to repeat | visible mistake on confirm page | dangerous |
+| Setting (what ships in bold) | right first time | no coin heard: asked to name it | asked to repeat | visible mistake on confirm page | dangerous |
 |---|---|---|---|---|---|
 | **Chinese, small + domain prompt** (54 clips) | 51 | 1 | 1 | 1 | **0** |
 | **English, base + domain prompt** (54 clips) | 48 | 5 | 0 | 1 | **0** |
@@ -131,6 +131,41 @@ All 108 reference sentences parse exactly. Whisper output it copes with: `六万
 (traditional), misheard coins (`以太房`, `earth`), "fourteen fifty" = 1,450, "sixteen eighty point five", "60k",
 "cell" for "sell".
 
+### Hold to talk (Day 3, second part)
+
+Long-press on the positions page, say the command, release. The glasses mic streams 16 kHz PCM to the backend;
+`stt/` (faster-whisper on your own machine, no key, audio never leaves it) transcribes it; the parser above turns it
+into an intent; `server/src/voice.ts` decides what that may become. A voice command can only ever produce:
+
+- the **same confirm page** the menu opens (halve, close, stop-loss / take-profit at the price you said, cancel all),
+  with one more line: what was heard. Nothing moves until you tap, and the 5-second undo still applies;
+- a **paper price alert** ("alert me if ETH drops below 1650"), shown with what was heard; one tap removes it again;
+- or a **refusal that says why**, for example:
+  - a price off by an order of magnitude (五千九 instead of 五万九): more than 3x or less than 1/3 of the live price;
+  - a stop above the bid (it would fire at once), an alert that is already crossed;
+  - no coin heard (never guessed: Whisper hears "ETH" as "F" or "earth");
+  - "buy" / "sell": voice only reduces risk, it never opens or adds to a position.
+
+A price more than 20% from the market is allowed but the heard line turns bright and says so.
+
+| Listening | Confirm page from voice | Set, tap to see positions |
+|---|---|---|
+| ![listening](docs/shots/day3b_listen_zh.png) | ![confirm](docs/shots/day3b_confirm_stop_zh.png) | ![placed](docs/shots/day3b_placed_stop_zh.png) |
+| ![take](docs/shots/day3b_confirm_take_en.png) | ![alert](docs/shots/day3b_alert_set_en.png) | ![buy refused](docs/shots/day3b_refused_buy_en.png) |
+| ![transcribing](docs/shots/day3b_thinking_zh.png) | ![halve](docs/shots/day3b_confirm_halve_zh.png) | ![misheard price](docs/shots/day3b_refused_magnitude_zh.png) |
+
+**The simulator has no microphone**, so these runs feed a recorded WAV (Windows TTS, 16 kHz mono) into the open
+recording through a dev-only endpoint (`DEV_INJECT=1`, `POST /api/dev/inject`), cut into the same 3200-byte chunks the
+glasses send. Everything after the mic is the real path: long press and release come from the simulator, the
+transcript from faster-whisper, the plan from `voice.ts`, the page from the backend state. Measured on this machine
+(16-core CPU, int8): English (base) 0.7-1.0 s per command, Chinese (small) 2.5-3.1 s.
+
+Same 312 real Whisper transcripts as above, now through the whole plan (`server/test/voice.test.ts`): no plan acts on
+a different coin, direction, kind or order price than the one spoken. Three alerts keep a misheard number
+(五万八 -> 51,800, 一千六百零五 -> 1,650, "1525.5" -> 1,500); an alert moves no money and is shown with the transcript
+and a one-tap remove. With the shipping settings, 32 of 34 actionable Chinese commands and 31 of 34 English ones
+give exactly the plan the original sentence gives.
+
 ## Run it
 
 Needs Node 22.18+ (TypeScript runs natively, the backend has zero dependencies).
@@ -138,13 +173,17 @@ Needs Node 22.18+ (TypeScript runs natively, the backend has zero dependencies).
 ```bash
 cd server && npm start            # http://127.0.0.1:8787  (/api/state, /api/stream, POST /api/preview|confirm|undo|dismiss)
                                   # preview kinds: halve, close, stop, take (with product) and cancelAll
+cd stt && python -m pip install -r requirements.txt && python server.py   # http://127.0.0.1:8788, loads base + small
 cd app && npm install && npm run dev
 npx evenhub-simulator http://127.0.0.1:5173/
 ```
 
-Tests: `cd server && npm test` (ledger, feed, actions, resting orders: 35 tests) and `cd app && npm test` (layout, pages, menu: 17 tests).
+Voice in the simulator (no mic): start the backend with `DEV_INJECT=1`, long-press in the simulator, then
+`curl -X POST --data-binary @command.wav http://127.0.0.1:8787/api/dev/inject` (16 kHz mono 16-bit WAV) and release.
 
-The demo portfolio is stored in `server/data/fills.json` (resting orders in `orders.json`); delete them to re-seed.
+Tests: `cd server && npm test` (ledger, feed, actions, resting orders, voice parser and plans: 56 tests) and `cd app && npm test` (layout, pages, menu, voice pages: 22 tests).
+
+The demo portfolio is stored in `server/data/fills.json` (resting orders in `orders.json`, alerts in `alerts.json`); delete them to re-seed.
 
 ## How PnL is computed
 
@@ -174,8 +213,8 @@ none of that pre-hackathon spike code is used here. Written with AI assistance (
 
 ## Roadmap for the week
 
-1. ~~Confirm page + 5-second undo + sandbox orders for halve / close~~ (done Day 2); ~~cancel all, stop, take-profit~~ (Day 2b); next: price alerts.
-2. Hold-to-talk voice commands (local faster-whisper) that only ever produce a confirm page: ~~parser + 108-clip regression~~ (Day 3a); next: mic -> STT service -> confirm page, price sanity check against the live price.
+1. ~~Confirm page + 5-second undo + sandbox orders for halve / close~~ (done Day 2); ~~cancel all, stop, take-profit~~ (Day 2b); ~~price alerts~~ (Day 3b).
+2. Hold-to-talk voice commands (local faster-whisper) that only ever produce a confirm page: ~~parser + 108-clip regression~~ (Day 3a); ~~mic -> STT service -> confirm page, price sanity checks, alerts~~ (Day 3b).
 3. Risk page: distance to stop / expiry for Coinbase futures, 24h sparkline.
 4. Demo video.
 

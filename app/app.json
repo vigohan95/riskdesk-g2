@@ -7,7 +7,8 @@
   "min_sdk_version": "0.0.16",
   "entrypoint": "index.html",
   "permissions": [
-    { "name": "network", "desc": "Connects to your own RiskDesk backend for live Coinbase prices and your paper portfolio.", "whitelist": ["http://127.0.0.1:8787"] }
+    { "name": "network", "desc": "Connects to your own RiskDesk backend for live Coinbase prices and your paper portfolio.", "whitelist": ["http://127.0.0.1:8787"] },
+    { "name": "g2-microphone", "desc": "Hold to talk: speech goes to your own RiskDesk backend for local transcription, only while you hold." }
   ],
   "supported_languages": ["en", "zh"]
 }

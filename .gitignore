@@ -3,3 +3,4 @@ dist/
 *.ehpk
 .env
 server/data/
+__pycache__/

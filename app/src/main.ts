@@ -1,4 +1,5 @@
-// RiskDesk glasses app: live PnL page + one-tap actions (context menu -> confirm -> 5 s undo -> result).
+// RiskDesk glasses app: live PnL page + one-tap actions (context menu -> confirm -> 5 s undo -> result)
+// + hold-to-talk voice commands (long press -> mic on, PCM streamed to the backend; release -> transcribe -> the same confirm page).
 // Data comes from the RiskDesk backend over Server-Sent Events; this file only renders and forwards taps.
 // The server owns every number and every state transition; the glasses never compute money.
 // Updates use textContainerUpgrade (no flicker, ~83 ms) and are serialized: bridge writes never overlap,
@@ -13,9 +14,10 @@ import {
   MenuContainerProperty,
   MenuItemProperty,
   OsEventTypeList,
+  AudioInputSource,
 } from '@evenrealities/even_hub_sdk'
 import {
-  pnlPage, confirmPage, undoPage, resultPage, pageKind, menuItems, menuAction, MENU_LANG, overflows, PAD,
+  pnlPage, confirmPage, undoPage, resultPage, voicePage, noticePage, pageKind, menuItems, menuAction, MENU_LANG, overflows, PAD,
   type DeskState, type Lang, type Page, type PageKind, type Text,
 } from './layout.ts'
 
@@ -55,6 +57,8 @@ function wanted(): { kind: PageKind; page: Page } {
   if (kind === 'confirm') return { kind, page: confirmPage(v!, lang) }
   if (kind === 'undo') return { kind, page: undoPage(v!, lang) }
   if (kind === 'result') return { kind, page: resultPage(v, lang) }
+  if (kind === 'voice') return { kind, page: voicePage(latest!.voice!, lang) }
+  if (kind === 'notice') return { kind, page: noticePage(latest!.notice!, lang) }
   return { kind, page: pnlPage(latest, lang, offline) }
 }
 
@@ -105,6 +109,61 @@ function refuse(e: unknown) {
   setTimeout(() => void draw(), 4100)
 }
 
+// ---------- hold-to-talk ----------
+// Long press opens the glasses mic; PCM (16 kHz s16le mono, 100 ms per event) is batched and posted in order
+// to the backend every 300 ms; release closes the mic and asks the backend to transcribe. The backend decides
+// everything after that (confirm page, alert, or a refusal), and the page follows its state.
+let rec: { id: string | null; buf: Uint8Array[]; sending: Promise<void>; timer: number } | null = null
+const toBytes = (pcm: unknown): Uint8Array => {
+  if (pcm instanceof Uint8Array) return pcm
+  if (Array.isArray(pcm)) return Uint8Array.from(pcm as number[])
+  if (typeof pcm === 'string') return Uint8Array.from(atob(pcm), (c) => c.charCodeAt(0))
+  return new Uint8Array(0)
+}
+function flush() {
+  if (!rec || !rec.id || !rec.buf.length) return
+  const r = rec
+  const n = r.buf.reduce((a, b) => a + b.length, 0)
+  const body = new Uint8Array(n)
+  let o = 0
+  for (const b of r.buf) { body.set(b, o); o += b.length }
+  r.buf = []
+  r.sending = r.sending.then(() => fetch(`${SERVER}/api/voice/chunk?id=${r.id}`, { method: 'POST', headers: { 'Content-Type': 'application/octet-stream' }, body }).then(() => {}, () => {}))
+}
+async function startVoice() {
+  if (rec) return
+  rec = { id: null, buf: [], sending: Promise.resolve(), timer: 0 }
+  const r = rec
+  try {
+    const out = await post('/api/voice/begin', { lang })
+    r.id = out.id
+    const ok = await bridge.audioControl(true, AudioInputSource.Glasses)
+    console.log('VOICE_BEGIN', r.id, 'mic', ok)
+    r.timer = window.setInterval(flush, 300)
+  } catch (e) {
+    rec = null
+    refuse(e)
+  }
+}
+async function stopVoice() {
+  const r = rec
+  if (!r) return
+  await bridge.audioControl(false).catch(() => false)
+  clearInterval(r.timer)
+  // begin may still be in flight if the press was very short
+  for (let i = 0; i < 20 && !r.id; i++) await new Promise((res) => setTimeout(res, 50))
+  flush()
+  await r.sending
+  rec = null
+  if (!r.id) return
+  try {
+    const out = await post('/api/voice/end', { id: r.id })
+    console.log('VOICE_END', JSON.stringify({ ok: out.ok, heard: out.heard, cmd: out.cmd, kind: out.proposal?.kind, message: out.message }))
+  } catch (e) {
+    refuse(e)
+  }
+}
+
 function connect() {
   const es = new EventSource(`${SERVER}/api/stream`)
   es.onmessage = (ev) => {
@@ -125,7 +184,9 @@ connect()
 //   confirm page tap = confirm (arms the 5 s undo window), double-tap = back
 //   undo page    tap = undo
 //   result page  tap = back
+//   PnL / notice long press = hold to talk (release to send); notice page tap = remove the alert just set, or back
 bridge.onEvenHubEvent((e) => {
+  if (e.audioEvent) { if (rec) rec.buf.push(toBytes(e.audioEvent.audioPcm)); return }
   const item = e.menuItemClickEvent?.itemID
   if (item !== undefined) {
     console.log('MENU', item)
@@ -140,7 +201,18 @@ bridge.onEvenHubEvent((e) => {
   // CLICK_EVENT is 0, the protobuf default, so it usually arrives with eventType omitted:
   // the simulator sends a click as {sysEvent: {eventSource: 1}} (seen 2026-11-23).
   const isClick = type === OsEventTypeList.CLICK_EVENT || (type === undefined && !!(e.textEvent || e.sysEvent))
+  if (type === OsEventTypeList.LONG_PRESS_EVENT) {
+    // Voice starts from the positions page or over a notice; never on top of a confirm / undo page.
+    if (kind === 'pnl' || kind === 'notice') void startVoice()
+    return
+  }
+  if (type === OsEventTypeList.LONG_PRESS_RELEASE_EVENT) { void stopVoice(); return }
   if (isClick) {
+    if (kind === 'notice' && latest?.notice) {
+      const n = latest.notice
+      post(n.undo ? '/api/alerts/remove' : '/api/notice/dismiss', { id: n.undo ?? n.id }).catch(refuse)
+      return
+    }
     if (kind === 'confirm' && v) post('/api/confirm', { id: v.id }).catch(refuse)
     else if (kind === 'undo' && v && v.status === 'armed') post('/api/undo', { id: v.id }).catch(refuse)
     else if (kind === 'result') {

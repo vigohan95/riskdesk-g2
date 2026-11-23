@@ -8,6 +8,13 @@
 //   POST /api/confirm  {id}  -> armed, order goes out after 5 s unless undone
 //   POST /api/undo     {id}  -> cancelled inside the window (or a proposal dismissed)
 //   POST /api/dismiss  {id}  -> clear a finished action from the glasses early
+//   POST /api/voice/begin {lang}            hold-to-talk pressed -> {id}; the glasses show "listening"
+//   POST /api/voice/chunk?id=  raw PCM       16 kHz s16le mono, as the G2 mic delivers it (<= 64 KB per call)
+//   POST /api/voice/end   {id}               released -> local STT -> parser -> confirm page / alert / refusal
+//   POST /api/voice/cancel {id}
+//   POST /api/dev/inject?id=  WAV body       DEV_INJECT=1 only: feeds a recorded WAV into the open recording in
+//                                            3200-byte chunks (the simulator has no microphone)
+// Speech goes to the local stt/ service (STT_URL, default http://127.0.0.1:8788); audio never leaves the machine.
 // Orders go to the public Coinbase Advanced Trade sandbox (ORDERS_BASE to change).
 // Binds to 127.0.0.1 by default (HOST / PORT env to change). No API keys needed.
 
@@ -19,6 +26,10 @@ import { DEMO_SEED, resolveSeed, FillStore, JsonStore, buildLedger } from './por
 import { buildState } from './state.ts'
 import { ActionDesk, coinbaseOrders, SANDBOX, ACTION_KINDS, type ActionKind, type ActionState } from './actions.ts'
 import { PaperOrderBook, STOP_PCT, TAKE_PCT, type Resting } from './orders.ts'
+import { PriceAlerts, type Alert } from './alerts.ts'
+import { Recording, sttClient, understand, wavChunks, MIN_AUDIO_S, type Market } from './voice.ts'
+import type { Notice, VoiceView } from './state.ts'
+import { randomUUID } from 'node:crypto'
 
 const PRODUCTS = (process.env.PRODUCTS ?? 'BTC-USD,ETH-USD').split(',')
 const HOST = process.env.HOST ?? '127.0.0.1'
@@ -28,6 +39,11 @@ const RESULT_MS = 4000
 const dataFile = (name: string) => new URL(`../data/${name}`, import.meta.url).pathname.replace(/^\/(\w:)/, '$1')
 const orderStore = new JsonStore<Resting[]>(dataFile('orders.json'), [])
 const store = new FillStore(dataFile('fills.json'))
+const alertStore = new JsonStore<Alert[]>(dataFile('alerts.json'), [])
+const NOTICE_MS = 5000
+const DEV_INJECT = process.env.DEV_INJECT === '1'
+const transcribe = sttClient(process.env.STT_URL ?? 'http://127.0.0.1:8788')
+const fmtPx = (x: number) => x.toLocaleString('en-US', { maximumFractionDigits: x < 100 ? 2 : 0 })
 
 async function main() {
   let fills = store.load()
@@ -58,7 +74,20 @@ async function main() {
   let current: ActionState | null = null
   let finishedAt = 0
   const visible = () => (current && isFinal(current) && Date.now() - finishedAt > RESULT_MS ? null : current)
-  const state = () => buildState(feed.snapshot(), ledger, PRODUCTS, dayStart, dayOpen, Date.now(), { book, action: visible(), venue: (process.env.ORDERS_BASE ?? SANDBOX) === SANDBOX ? 'sandbox' : 'production' })
+  const alerts = new PriceAlerts(alertStore.load())
+  let rec: Recording | null = null
+  let thinking: VoiceView | null = null
+  let notice: (Notice & { until: number }) | null = null
+  const voiceView = (): VoiceView | null => thinking ?? (rec ? { status: 'listening', lang: rec.lang, seconds: Math.round(rec.seconds * 10) / 10 } : null)
+  const liveNotice = () => (notice && Date.now() < notice.until ? { id: notice.id, en: notice.en, zh: notice.zh, heard: notice.heard, undo: notice.undo } : null)
+  const state = () => buildState(feed.snapshot(), ledger, PRODUCTS, dayStart, dayOpen, Date.now(), {
+    book, action: visible(), venue: (process.env.ORDERS_BASE ?? SANDBOX) === SANDBOX ? 'sandbox' : 'production',
+    alerts: alerts.size, voice: voiceView(), notice: liveNotice(),
+  })
+  const showNotice = (en: string, zh: string, heard: string | null, undo: string | null = null) => {
+    notice = { id: randomUUID(), en, zh, heard, undo, until: Date.now() + NOTICE_MS }
+    setTimeout(() => push(), NOTICE_MS + 50)
+  }
   const push = () => {
     const data = `data: ${JSON.stringify(state())}
 
@@ -93,16 +122,122 @@ async function main() {
   }, 100)
   feed.onUpdate(() => {
     for (const p of new Set(book.list().map((o) => o.product))) void desk.onQuote(p)
+    const snap = feed.snapshot()
+    if (snap.status === 'live' && alerts.size) {
+      for (const p of new Set(alerts.list().map((a) => a.product))) {
+        const t = snap.ticks[p]
+        if (!t) continue
+        const hit = alerts.check(p, t.price)
+        for (const a of hit) {
+          const sym = p.replace(/-USD$/, '')
+          console.log(`alert hit ${sym} ${a.dir} ${a.price} at ${t.price}`)
+          showNotice(`Alert: ${sym} ${a.dir === 'below' ? 'fell below' : 'rose above'} ${fmtPx(a.price)} (now ${fmtPx(t.price)})`,
+            `提醒：${sym} ${a.dir === 'below' ? '跌破' : '涨破'} ${fmtPx(a.price)}（现价 ${fmtPx(t.price)}）`, null)
+        }
+        if (hit.length) alertStore.save(alerts.list())
+      }
+    }
     push()
   })
+  const market: Market = {
+    price: (p) => { const s = feed.snapshot(); return s.status === 'live' ? s.ticks[p]?.price ?? null : null },
+    exit: (p) => { const s = feed.snapshot(); const t = s.ticks[p]; if (!t || s.status !== 'live') return null; return ledger.qty(p) < 0 ? t.ask : t.bid },
+    held: (p) => ledger.qty(p),
+  }
+  const busyAction = () => !!current && (current.status === 'armed' || current.status === 'sending')
+  const preview = (kind: ActionKind, product: string, opts = {}) => {
+    if (busyAction()) throw new HttpError(409, 'another action is about to execute')
+    if (current?.status === 'proposed') desk.undo(current.p.id)
+    return desk.preview(kind, product, opts)
+  }
+  const openRec = (id: string) => {
+    if (!rec || rec.id !== id) throw new HttpError(404, 'no such recording (released already?)')
+    return rec
+  }
+  let lastVoicePush = 0
+  const raw: Record<string, (q: URLSearchParams, body: Buffer) => unknown> = {
+    '/api/voice/chunk': (q, body) => {
+      const r = openRec(String(q.get('id')))
+      r.push(body)
+      if (Date.now() - lastVoicePush > 500) { lastVoicePush = Date.now(); push() }
+      return { ok: true, seconds: r.seconds }
+    },
+  }
+  if (DEV_INJECT) {
+    raw['/api/dev/inject'] = (q, body) => {
+      const r = openRec(String(q.get('id') ?? rec?.id))
+      const chunks = wavChunks(body)
+      for (const c of chunks) r.push(c)
+      push()
+      console.log(`dev inject: ${chunks.length} chunks, ${r.seconds.toFixed(2)} s into ${r.id.slice(0, 8)}`)
+      return { ok: true, id: r.id, chunks: chunks.length, seconds: r.seconds }
+    }
+  }
   feed.start()
 
   const actions: Record<string, (b: any) => unknown> = {
     '/api/preview': (b) => {
-      if (current && (current.status === 'armed' || current.status === 'sending')) throw new HttpError(409, 'another action is about to execute')
-      if (current?.status === 'proposed') desk.undo(current.p.id)
       if (!ACTION_KINDS.includes(b.kind)) throw new HttpError(400, `kind must be one of ${ACTION_KINDS.join(', ')}`)
-      return desk.preview(b.kind as ActionKind, String(b.product ?? '*'))
+      return preview(b.kind as ActionKind, String(b.product ?? '*'))
+    },
+    '/api/voice/begin': (b) => {
+      if (busyAction()) throw new HttpError(409, 'another action is about to execute')
+      if (thinking) throw new HttpError(409, 'still transcribing the last command')
+      rec = new Recording(randomUUID(), b.lang === 'zh' ? 'zh' : 'en', Date.now())
+      notice = null
+      console.log(`voice begin ${rec.id.slice(0, 8)} ${rec.lang}`)
+      push()
+      return { id: rec.id }
+    },
+    '/api/alerts/remove': (b) => {
+      const ok = alerts.remove(String(b.id))
+      if (ok) alertStore.save(alerts.list())
+      if (notice?.undo === b.id) notice = null
+      push()
+      return { ok }
+    },
+    '/api/notice/dismiss': (b) => { if (notice?.id === b.id) { notice = null; push() } return { ok: true } },
+    '/api/voice/cancel': (b) => { if (rec && rec.id === b.id) { rec = null; push() } return { ok: true } },
+    '/api/voice/end': async (b) => {
+      const r = openRec(String(b.id))
+      rec = null
+      const lang = r.lang
+      const say = (en: string, zh: string, heard: string | null, extra: object = {}, undo: string | null = null) => {
+        showNotice(en, zh, heard, undo)
+        push()
+        return { ok: false, heard, message: lang === 'zh' ? zh : en, ...extra }
+      }
+      if (r.seconds < MIN_AUDIO_S) return say('Too short. Hold, speak, then release.', '太短了。按住说完再松开。', null)
+      thinking = { status: 'thinking', lang, seconds: Math.round(r.seconds * 10) / 10 }
+      push()
+      let text: string, sttMs: number
+      try {
+        const out = await transcribe(r.pcm(), lang)
+        text = out.text; sttMs = out.stt_ms
+      } catch (e) {
+        thinking = null
+        return say(`Speech service: ${(e as Error).message}`, `语音服务：${(e as Error).message}`, null)
+      }
+      thinking = null
+      const { cmd, plan } = understand(text, lang, market)
+      console.log(`voice ${lang} ${r.seconds.toFixed(1)}s stt ${sttMs}ms "${text}" -> ${JSON.stringify(cmd)} -> ${plan.type}`)
+      if (!text) return say('Heard nothing. Hold and speak again.', '没听到声音，请按住再说。', '')
+      if (plan.type === 'refuse') return say(plan.en, plan.zh, text, { cmd })
+      if (plan.type === 'alert') {
+        const sym = plan.product.replace(/-USD$/, '')
+        const id = randomUUID()
+        const old = alerts.set({ id, product: plan.product, dir: plan.dir, price: plan.price, createdAt: Date.now() })
+        alertStore.save(alerts.list())
+        const rp = old ? [` (replaces ${fmtPx(old.price)})`, `（替换原来的 ${fmtPx(old.price)}）`] : ['', '']
+        const warn = plan.far ? [' · over 20% away', ' · 离现价超过 20%'] : ['', '']
+        return { ...say(`Alert set: ${sym} ${plan.dir} ${fmtPx(plan.price)}${rp[0]}${warn[0]}`, `已设提醒：${sym} ${plan.dir === 'below' ? '跌破' : '涨破'} ${fmtPx(plan.price)}${rp[1]}${warn[1]}`, text, { cmd }, id), ok: true }
+      }
+      try {
+        const p = preview(plan.kind, plan.product, { trigger: plan.trigger, heard: text, far: plan.far })
+        return { ok: true, heard: text, cmd, proposal: p }
+      } catch (e) {
+        return say(`Not possible: ${(e as Error).message}`, `做不了：${(e as Error).message}`, text, { cmd })
+      }
     },
     '/api/confirm': (b) => desk.confirm(String(b.id)),
     '/api/undo': (b) => desk.undo(String(b.id)),
@@ -118,10 +253,19 @@ async function main() {
     const path = (req.url ?? '/').split('?')[0]
     if (req.method === 'OPTIONS') {
       res.end()
+    } else if (req.method === 'POST' && raw[path]) {
+      res.setHeader('Content-Type', 'application/json')
+      try {
+        const q = new URLSearchParams((req.url ?? '').split('?')[1] ?? '')
+        res.end(JSON.stringify(raw[path](q, await readRaw(req, path === '/api/dev/inject' ? 2_000_000 : 64_000))))
+      } catch (e) {
+        res.statusCode = e instanceof HttpError ? e.status : 400
+        res.end(JSON.stringify({ error: (e as Error).message }))
+      }
     } else if (req.method === 'POST' && actions[path]) {
       res.setHeader('Content-Type', 'application/json')
       try {
-        const out = actions[path](await readJson(req))
+        const out = await actions[path](await readJson(req))
         res.end(JSON.stringify(out))
       } catch (e) {
         res.statusCode = e instanceof HttpError ? e.status : 400
@@ -154,6 +298,16 @@ function readJson(req: IncomingMessage): Promise<any> {
     let body = ''
     req.on('data', (c) => { body += c; if (body.length > 10_000) req.destroy() })
     req.on('end', () => { try { resolve(body ? JSON.parse(body) : {}) } catch { reject(new HttpError(400, 'bad JSON')) } })
+    req.on('error', reject)
+  })
+}
+
+function readRaw(req: IncomingMessage, max: number): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const parts: Buffer[] = []
+    let n = 0
+    req.on('data', (c: Buffer) => { n += c.length; if (n > max) { reject(new HttpError(413, 'body too large')); req.destroy() } else parts.push(c) })
+    req.on('end', () => resolve(Buffer.concat(parts)))
     req.on('error', reject)
   })
 }

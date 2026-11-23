@@ -222,3 +222,54 @@ test('full menu: 2 symbols x 4 actions + cancel all + language = exactly 10, all
   assert.deepEqual(menuAction(80, ['BTC', 'ETH']), { kind: 'cancelAll', sym: null })
   assert.ok(menuItems(['BTC', 'ETH', 'SOL', 'XRP'], 'zh').length <= 10)
 })
+
+// ---- voice (Day 3b) ----
+import { voicePage, noticePage } from '../src/layout.ts'
+
+test('voice: listening / transcribing / notice pages fit, en + zh', () => {
+  for (const lang of ['en', 'zh'] as const) {
+    for (const v of [{ status: 'listening', lang, seconds: 2.3 }, { status: 'thinking', lang, seconds: 14.9 }] as const) {
+      assert.deepEqual(overflows(voicePage(v, lang)), [], `${lang} ${v.status}`)
+    }
+    const n = { id: 'n1', en: 'Alert set: BTC below 55,000 (replaces 54,000) · over 20% away', zh: '已设提醒：BTC 跌破 55,000（替换原来的 54,000）· 离现价超过 20%', heard: '比特币跌破五万五提醒我。'.repeat(4), undo: 'a1' }
+    const p = noticePage(n, lang)
+    assert.deepEqual(overflows(p), [], lang)
+    assert.match(p.texts.at(-1)!.content, lang === 'zh' ? /撤销/ : /remove/)
+    assert.match(noticePage({ ...n, undo: null }, lang).texts.at(-1)!.content, lang === 'zh' ? /回到持仓/ : /back/)
+  }
+})
+
+test('voice: confirm page shows what was heard and flags a far price, still fits', () => {
+  for (const lang of ['en', 'zh'] as const) {
+    const plain = confirmPage(stop, lang)
+    assert.equal(plain.texts.find((t) => t.name === 'heard'), undefined)
+    for (const v of [{ ...stop, heard: 'Set a stop loss on BTC at fifty nine thousand seven hundred eighty point two please', far: false }, { ...act, heard: '比特币减半', far: false }, { ...stop, heard: 'BTC stop 40000', far: true }]) {
+      const p = confirmPage(v, lang)
+      assert.deepEqual(overflows(p), [], `${lang} ${v.heard}`)
+      const h = p.texts.find((t) => t.name === 'heard')!
+      assert.ok(h.content.includes(lang === 'zh' ? '听到' : 'heard'))
+      assert.equal(h.color, v.far ? 4 : 2)
+      assert.ok(p.texts.length <= 8)
+    }
+  }
+})
+
+test('voice: an order in flight beats a recording, a recording beats a notice', () => {
+  const base = { ...real, voice: { status: 'listening', lang: 'en', seconds: 1 } as const, notice: { id: 'n', en: 'x', zh: 'x', heard: null, undo: null } }
+  assert.equal(pageKind(base), 'voice')
+  assert.equal(pageKind({ ...base, voice: null }), 'notice')
+  assert.equal(pageKind({ ...base, action: act }), 'confirm')
+  assert.equal(pageKind({ ...real, voice: null, notice: null }), 'pnl')
+})
+
+test('voice: a long refusal wraps onto a second line instead of being cut', () => {
+  const n = { id: 'n', en: 'Stop-loss 59,500 is above the BTC bid 58,000.12: it would fire at once. Not set.', zh: '止损 59,500 高于现在的买一价 58,000，会立刻触发，没设。语音不做开仓或加仓，只能减半 / 平仓 / 止损 / 止盈 / 提醒。', heard: 'x', undo: null }
+  for (const lang of ['en', 'zh'] as const) {
+    const p = noticePage(n, lang)
+    assert.deepEqual(overflows(p), [])
+    const joined = p.texts[0].content + (lang === 'en' ? ' ' : '') + p.texts[1].content
+    const full = lang === 'zh' ? n.zh : n.en
+    assert.ok(!p.texts[0].content.endsWith('…'), p.texts[0].content)
+    assert.ok(joined.replace(/\s+/g, '').startsWith(full.replace(/\s+/g, '').slice(0, 40)), joined)
+  }
+})

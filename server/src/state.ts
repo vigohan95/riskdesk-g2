@@ -25,7 +25,14 @@ export type DeskState = {
   alerts: number
   /** The one action in flight (or just finished), or null. The glasses switch page on this. */
   action: ActionView | null
+  /** Hold-to-talk in progress: the glasses show a listening / transcribing page. */
+  voice: VoiceView | null
+  /** A short message that is not an order: alert set or hit, or why a voice command did nothing. */
+  notice: Notice | null
 }
+export type VoiceView = { status: 'listening' | 'thinking'; lang: 'en' | 'zh'; seconds: number }
+/** undo: id of the alert this notice just set; a tap on the page removes it again. */
+export type Notice = { id: string; en: string; zh: string; heard: string | null; undo: string | null }
 
 /** Everything the confirm / undo / result pages show, already computed by the server. */
 export type ActionView = {
@@ -49,6 +56,8 @@ export type ActionView = {
   replaces: number | null // stop / take: trigger of the order it replaces
   affected: number | null // cancelAll: orders to cancel (proposed) or cancelled (placed)
   auto: boolean // a resting order fired by itself
+  heard: string | null // voice: transcript the proposal came from
+  far: boolean // voice: spoken trigger > 20% from the live price
 }
 
 export function actionView(s: ActionState | null, now: number, venue: ActionView['venue'] = 'sandbox'): ActionView | null {
@@ -75,6 +84,8 @@ export function actionView(s: ActionState | null, now: number, venue: ActionView
     replaces: p.replaces,
     affected: s.status === 'placed' && p.kind === 'cancelAll' ? s.affected : p.affected,
     auto: p.auto,
+    heard: p.heard,
+    far: p.far,
   }
 }
 
@@ -85,7 +96,7 @@ export function buildState(
   dayStart: number,
   dayOpen: Record<string, number>,
   now: number,
-  extra: { book?: PaperOrderBook; alerts?: number; action?: ActionState | null; venue?: ActionView['venue'] } = {},
+  extra: { book?: PaperOrderBook; alerts?: number; action?: ActionState | null; venue?: ActionView['venue']; voice?: VoiceView | null; notice?: Notice | null } = {},
 ): DeskState {
   const quotes: Record<string, { bid: number; ask: number }> = {}
   for (const [p, t] of Object.entries(snap.ticks)) quotes[p] = { bid: t.bid, ask: t.ask }
@@ -123,5 +134,7 @@ export function buildState(
     openOrders: extra.book?.size ?? 0,
     alerts: extra.alerts ?? 0,
     action: actionView(extra.action ?? null, now, extra.venue),
+    voice: extra.voice ?? null,
+    notice: extra.notice ?? null,
   }
 }

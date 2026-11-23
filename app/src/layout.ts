@@ -34,6 +34,8 @@ export type DeskState = {
   openOrders: number
   alerts: number
   action: ActionView | null
+  voice?: { status: 'listening' | 'thinking'; lang: Lang; seconds: number } | null
+  notice?: { id: string; en: string; zh: string; heard: string | null; undo: string | null } | null
 }
 export type ActionView = {
   id: string
@@ -56,16 +58,21 @@ export type ActionView = {
   replaces?: number | null
   affected?: number | null
   auto?: boolean
+  heard?: string | null
+  far?: boolean
 }
 export type ActionKind = 'halve' | 'close' | 'stop' | 'take' | 'cancelAll'
-export type PageKind = 'pnl' | 'confirm' | 'undo' | 'result'
+export type PageKind = 'pnl' | 'confirm' | 'undo' | 'result' | 'voice' | 'notice'
+/** An order in flight always wins; then a recording in progress; then a short notice; else positions. */
 export function pageKind(s: DeskState | null): PageKind {
   switch (s?.action?.status) {
     case 'proposed': return 'confirm'
     case 'armed': case 'sending': return 'undo'
     case 'filled': case 'placed': case 'undone': case 'failed': return 'result'
-    default: return 'pnl'
   }
+  if (s?.voice) return 'voice'
+  if (s?.notice) return 'notice'
+  return 'pnl'
 }
 
 const MINUS = '−'
@@ -263,6 +270,14 @@ export function dots(remainMs: number, total = 5): string {
 const box = (id: number, name: string, y: number, content: string, color: number, extra: Partial<Text> = {}): Text =>
   ({ id, name, x: 0, y, w: W, h: boxH(1), content: pxTruncate(content, W - 2 * PAD), color, ...extra })
 
+/** Voice: what was heard, and a warning when the spoken price is far from the market. */
+function heardLine(v: ActionView, lang: Lang): Text[] {
+  if (!v.heard) return []
+  const far = v.far ? (lang === 'zh' ? '离现价超过 20%，看清再点 · ' : 'over 20% from price, check it · ') : ''
+  const said = lang === 'zh' ? `听到「${v.heard}」` : `heard "${v.heard}"`
+  return [box(6, 'heard', 186, far + said, v.far ? 4 : 2)]
+}
+
 export function confirmPage(v: ActionView, lang: Lang): Page {
   const t = A[lang]
   if (v.kind === 'cancelAll' || isResting(v)) {
@@ -273,6 +288,7 @@ export function confirmPage(v: ActionView, lang: Lang): Page {
         box(2, 'order', 54, r.order(v), 3),
         box(3, 'money', 98, r.money(v), 4),
         box(4, 'fee', 142, r.fee(v), 2),
+        ...heardLine(v, lang),
         box(5, 'foot', FOOTER_Y, t.confirmFoot, 3, { capture: true }),
       ],
     }
@@ -283,6 +299,7 @@ export function confirmPage(v: ActionView, lang: Lang): Page {
       box(2, 'order', 54, t.order(v), 3),
       box(3, 'money', 98, t.money(v), 4),
       box(4, 'fee', 142, `${t.fee(v)} · ${t.pos(v)}`, 2),
+      ...heardLine(v, lang),
       box(5, 'foot', FOOTER_Y, t.confirmFoot, 3, { capture: true }),
     ],
   }
@@ -318,6 +335,78 @@ export function resultPage(v: ActionView | null, lang: Lang, note?: string): Pag
       box(2, 'detail', 54, detail, 2),
       box(4, 'venue', 98, venue, 2),
       box(3, 'foot', FOOTER_Y, t.resultFoot, 3, { capture: true }),
+    ],
+  }
+}
+
+const V = {
+  en: {
+    listening: (s: number) => `● Listening… ${s.toFixed(1)} s`,
+    thinking: (s: number) => `Transcribing ${s.toFixed(1)} s of speech…`,
+    hint: 'Say e.g. "halve BTC" · "ETH stop loss 1500"',
+    hint1: '"alert me if bitcoin drops below 55k"',
+    hint2: 'Nothing happens without a confirm tap.',
+    listenFoot: 'release = done',
+    thinkFoot: 'on this machine, audio never leaves it',
+    heard: (h: string) => `heard "${h}"`,
+    undoFoot: 'tap = remove this alert',
+    backFoot: 'tap = back to positions',
+  },
+  zh: {
+    listening: (s: number) => `● 正在听… ${s.toFixed(1)} 秒`,
+    thinking: (s: number) => `识别中（${s.toFixed(1)} 秒语音）…`,
+    hint: '比如说「BTC 减半」「以太坊止损 1500」',
+    hint1: '「比特币跌破 5 万 5 提醒我」',
+    hint2: '不点确认什么都不会发生。',
+    listenFoot: '松开 = 说完了',
+    thinkFoot: '本机识别，音频不出本机',
+    heard: (h: string) => `听到「${h}」`,
+    undoFoot: '单击 = 撤销这个提醒',
+    backFoot: '单击 = 回到持仓',
+  },
+}
+
+/** Hold-to-talk page: listening (with seconds) or transcribing. */
+export function voicePage(s: NonNullable<DeskState['voice']>, lang: Lang): Page {
+  const t = V[lang]
+  const listening = s.status === 'listening'
+  return {
+    texts: [
+      box(1, 'title', 0, listening ? t.listening(s.seconds) : t.thinking(s.seconds), 4, { h: boxH(1) + 2, border: true }),
+      box(2, 'hint', 54, t.hint, 2),
+      box(3, 'hint1', 98, t.hint1, 2),
+      box(5, 'hint2', 142, t.hint2, 2),
+      box(4, 'foot', FOOTER_Y, listening ? t.listenFoot : t.thinkFoot, 3, { capture: true }),
+    ],
+  }
+}
+
+/** Splits text into a first line that fits `w` px and the rest (broken after a space or CJK char / punctuation). */
+export function splitLine(text: string, w: number): [string, string] {
+  if (getTextWidth(text) <= w) return [text, '']
+  const chars = [...text]
+  let cut = 0, lastBreak = 0
+  for (let i = 1; i <= chars.length; i++) {
+    if (getTextWidth(chars.slice(0, i).join('')) > w) break
+    cut = i
+    const c = chars[i - 1]
+    if (c === ' ' || /[　-鿿＀-￯,.;:]/.test(c)) lastBreak = i
+  }
+  const at = lastBreak > cut / 2 ? lastBreak : cut
+  return [chars.slice(0, at).join('').trimEnd(), chars.slice(at).join('').trimStart()]
+}
+
+/** Alert set / alert hit / why a voice command did nothing. A long message continues on the second line. */
+export function noticePage(n: NonNullable<DeskState['notice']>, lang: Lang): Page {
+  const t = V[lang]
+  const [first, rest] = splitLine(lang === 'zh' ? n.zh : n.en, W - 2 * PAD)
+  const heard = n.heard ? t.heard(n.heard) : ''
+  return {
+    texts: [
+      box(1, 'title', 0, first, 4, { h: boxH(1) + 2, border: true }),
+      box(2, 'more', 54, rest, 4),
+      box(4, 'detail', rest ? 98 : 54, heard, 2),
+      box(3, 'foot', FOOTER_Y, n.undo ? t.undoFoot : t.backFoot, 3, { capture: true }),
     ],
   }
 }

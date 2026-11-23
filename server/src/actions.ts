@@ -45,7 +45,12 @@ export type Proposal = {
   affected: number | null
   /** true when a resting order fired by itself (no tap). */
   auto: boolean
+  /** Voice: the transcript this proposal came from (shown on the confirm page), else null. */
+  heard: string | null
+  /** Voice: the spoken trigger is more than 20% from the live price (flagged on the confirm page). */
+  far: boolean
 }
+export type PreviewOpts = { trigger?: number | null; heard?: string | null; far?: boolean }
 export type ActionState =
   | { status: 'proposed'; p: Proposal }
   | { status: 'armed'; p: Proposal; fireAt: number }
@@ -122,9 +127,9 @@ export class ActionDesk {
     return [...this.states.values()].filter((s): s is Extract<ActionState, { status: 'armed' }> => s.status === 'armed')
   }
 
-  preview(kind: ActionKind, product: string): Proposal {
+  preview(kind: ActionKind, product: string, opts: PreviewOpts = {}): Proposal {
     const { ledger, book } = this.d
-    const base = { id: this.d.newId(), createdAt: this.d.now(), replaces: null, affected: null, auto: false }
+    const base = { id: this.d.newId(), createdAt: this.d.now(), replaces: null, affected: null, auto: false, heard: opts.heard ?? null, far: opts.far ?? false }
     if (kind === 'cancelAll') {
       if (!book.size) throw new Error('no open orders')
       return this.propose({
@@ -140,7 +145,13 @@ export class ActionDesk {
     const refPrice = side === 'SELL' ? q.bid : q.ask
     if (kind === 'stop' || kind === 'take') {
       // Protects the whole position; the money shown is what the fill would be at the trigger.
-      const trigger = triggerFor(kind, held, refPrice, this.d.stopPct, this.d.takePct)
+      // A spoken trigger (voice) is used as said, rounded to the cent; it must be on the right side of the price.
+      let trigger = triggerFor(kind, held, refPrice, this.d.stopPct, this.d.takePct)
+      if (opts.trigger != null) {
+        trigger = Math.round(opts.trigger * 100) / 100
+        const below = (kind === 'stop') === held > 0
+        if (below ? trigger >= refPrice : trigger <= refPrice) throw new Error(`${kind} ${trigger} would fire at once (${side === 'SELL' ? 'bid' : 'ask'} ${refPrice})`)
+      }
       const qty = Math.abs(held)
       const fee = qty * trigger * ledger.feeRate
       return this.propose({
@@ -199,7 +210,7 @@ export class ActionDesk {
       id: o.id, kind: o.kind, product, side: o.side, qty: o.qty, estPrice: o.trigger, estFee: o.qty * o.trigger * fee,
       estNet: o.side === 'SELL' ? o.qty * o.trigger * (1 - fee) : -o.qty * o.trigger * (1 + fee),
       exposureBefore: this.d.ledger.qty(product), exposureAfter: 0, createdAt: this.d.now(), refPrice: o.trigger,
-      trigger: o.trigger, replaces: null, affected: null, auto: true,
+      trigger: o.trigger, replaces: null, affected: null, auto: true, heard: null, far: false,
     })
   }
 
