@@ -235,7 +235,12 @@ gesture being pressed and a caption, and puts each voice clip on the audio track
 # backend with DEV_INJECT=1, STT service, app and simulator running as in "Run it" (simulator: --automation-port 9898)
 python demo/record.py --story en --out demo/run-en      # or --story zh (start the simulator with &lang=zh)
 python demo/compose.py demo/run-en demo/riskdesk-en.mp4 # needs Pillow + ffmpeg
+# the submitted cut: hold the risk page 2.5 s longer, then the bracket order again in the other language
+python demo/compose.py demo/run-en demo/riskdesk-en.mp4 --hold 41:2.5 --append demo/run-zh:15.82:35.6
 ```
+
+`--hold` only repeats a simulator frame (never inside a voice clip); `--append` plays a stretch of a second run behind a
+short title card. Nothing is drawn onto the glasses picture.
 
 Story (about 75 s of glasses time): PnL page -> tap -> BTC risk page with no stop -> hold and say "Bitcoin stop loss
 fifty-eight thousand, take profit sixty-four thousand" -> one confirm page for both legs -> tap -> 5 s undo window ->
