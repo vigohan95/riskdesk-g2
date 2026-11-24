@@ -25,7 +25,7 @@ import {
 import { riskPage, chartPixels, chartKey, CHART, type RiskView } from './risk.ts'
 
 const params = new URLSearchParams(location.search)
-const SERVER = params.get('server') ?? localStorage.getItem('riskdesk.server') ?? 'http://127.0.0.1:8787'
+const SERVER = params.get('server') ?? localStorage.getItem('riskdesk.server') ?? import.meta.env.VITE_RISKDESK_SERVER ?? 'http://127.0.0.1:8787'
 const SYMS = (params.get('syms') ?? 'BTC,ETH').split(',')
 let lang: Lang = (params.get('lang') as Lang) ?? (localStorage.getItem('riskdesk.lang') as Lang) ?? 'en'
 

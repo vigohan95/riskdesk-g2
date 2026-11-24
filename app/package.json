@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "pack": "npm run build && evenhub pack app.json dist",
+    "pack": "node scripts/pack.mjs",
     "test": "node --test test/*.test.ts"
   },
   "dependencies": {

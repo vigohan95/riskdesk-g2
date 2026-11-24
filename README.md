@@ -266,6 +266,23 @@ Voice in the simulator (no mic): start the backend with `DEV_INJECT=1`, long-pre
 
 Tests: `cd server && npm test` (ledger, feed, actions, resting orders, voice parser and plans, risk numbers: 66 tests) and `cd app && npm test` (layout, pages, menu, voice pages, bracket pages, risk page and chart: 32 tests).
 
+### Install on a phone (.ehpk)
+
+On real glasses the app runs inside the Even App's WebView on your phone, so `127.0.0.1` there means the phone,
+not your computer. Run the backend where the phone can reach it and pack the app for that one address:
+
+```bash
+cd server && HOST=0.0.0.0 npm start                                   # plus the STT service on the same machine
+cd app && RISKDESK_SERVER=http://192.168.1.20:8787 npm run pack       # -> riskdesk-0.1.0.ehpk
+```
+
+`npm run pack` type-checks, builds with that address baked in as the default server, writes it as the **only**
+entry of the `network` whitelist (the package can reach nothing else), and runs `evenhub pack`. The backend already
+answers with CORS headers, which the WebView enforces on top of the whitelist. Install through the Even App's
+developer / beta-tester flow. Checked: the production build (`vite build` + `vite preview`, no `?server=` override)
+renders the positions and risk pages in the simulator against live Coinbase data; not yet checked on physical G2
+glasses.
+
 The demo portfolio is stored in `server/data/fills.json` (resting orders in `orders.json`, alerts in `alerts.json`); delete them to re-seed.
 
 ## How PnL is computed
