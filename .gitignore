@@ -4,3 +4,6 @@ dist/
 .env
 server/data/
 __pycache__/
+demo/run-*/
+demo/*.mp4
+demo/*.wav

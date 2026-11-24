@@ -224,6 +224,26 @@ Coinbase's futures data (expiry, funding, margin rates) is also readable without
 (`/api/v3/brokerage/market/products?product_type=FUTURE`), but the demo portfolio holds spot, so the page shows
 nothing about contracts it does not hold.
 
+## Demo video: scripted, not staged
+
+The demo video is recorded by a script, so anyone can re-record it and get the same story on today's prices:
+`demo/record.py` drives the simulator through its automation API (tap, double tap, menu, long press / release) and
+saves the 576x288 glasses buffer every time it changes; `demo/compose.py` lays those frames out at 1080p with the
+gesture being pressed and a caption, and puts each voice clip on the audio track at the moment it was fed in.
+
+```
+# backend with DEV_INJECT=1, STT service, app and simulator running as in "Run it" (simulator: --automation-port 9898)
+python demo/record.py --story en --out demo/run-en      # or --story zh (start the simulator with &lang=zh)
+python demo/compose.py demo/run-en demo/riskdesk-en.mp4 # needs Pillow + ffmpeg
+```
+
+Story (about 75 s of glasses time): PnL page -> tap -> BTC risk page with no stop -> hold and say "Bitcoin stop loss
+fifty-eight thousand, take profit sixty-four thousand" -> one confirm page for both legs -> tap -> 5 s undo window ->
+placed -> the risk page now draws S and T on the 24h chart -> menu -> halve BTC -> confirm -> tap again within 5 s:
+undone, nothing sent -> "ETH stop at one sixty-five" refused as a misheard magnitude -> "Buy one bitcoin" refused
+(voice never opens positions). The voice clips in `demo/clips/` are Windows TTS, 16 kHz mono, because the simulator
+has no microphone; everything after the mic is the real path, including local Whisper.
+
 ## Run it
 
 Needs Node 22.18+ (TypeScript runs natively, the backend has zero dependencies).
