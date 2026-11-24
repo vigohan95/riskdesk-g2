@@ -188,3 +188,42 @@ test('a stop confirmed after the market already crossed it fires right away', as
   assert.equal(r.sent.length, 1)
   assert.equal(r.ledger.qty('ETH-USD'), 0)
 })
+
+test('bracket: one confirm prices both legs, 5 s later both rest in the book, nothing sent; take side fires and drops the stop', async () => {
+  const r = rig()
+  const p = r.desk.preview('bracket', 'BTC-USD', { trigger: 59000, take: 63000.004 })
+  assert.equal(p.kind, 'bracket')
+  assert.equal(p.trigger, 59000)
+  assert.equal(p.take!.trigger, 63000) // rounded to the cent
+  close(p.estNet, 0.02 * 59000 * (1 - 0.008)) // the money line is the stop leg
+  close(p.take!.estNet, 0.02 * 63000 * (1 - 0.008))
+  assert.equal(r.states.filter((s) => s.endsWith(':proposed')).length, 1) // pricing the legs proposes nothing else
+  r.desk.confirm(p.id)
+  await r.advance(UNDO_MS)
+  assert.equal(r.desk.get(p.id)!.status, 'placed')
+  assert.equal(r.sent.length, 0)
+  assert.equal(r.desk.book.find('BTC-USD', 'stop')?.trigger, 59000)
+  assert.equal(r.desk.book.find('BTC-USD', 'take')?.trigger, 63000)
+  r.quotes['BTC-USD'] = { bid: 63010, ask: 63011 }
+  await r.desk.onQuote('BTC-USD')
+  assert.equal(r.sent.length, 1)
+  assert.equal(r.ledger.qty('BTC-USD'), 0)
+  assert.equal(r.desk.book.size, 0) // one cancels the other
+})
+
+test('bracket: a bad leg proposes nothing (never one leg); undo keeps the book empty; replaces shown per leg', async () => {
+  const r = rig()
+  assert.throws(() => r.desk.preview('bracket', 'BTC-USD', { trigger: 59000, take: 60000 }), /take 60000 would fire at once/)
+  assert.throws(() => r.desk.preview('bracket', 'BTC-USD', { trigger: 61500, take: 63000 }), /stop 61500 would fire at once/)
+  assert.equal(r.states.length, 0)
+  const p = r.desk.preview('bracket', 'BTC-USD', { trigger: 59000, take: 63000 })
+  r.desk.confirm(p.id)
+  r.desk.undo(p.id)
+  await r.advance(UNDO_MS)
+  assert.equal(r.desk.book.size, 0)
+  await r.place('stop', 'BTC-USD')
+  await r.place('take', 'BTC-USD')
+  const q = r.desk.preview('bracket', 'BTC-USD', { trigger: 59500, take: 62500 })
+  close(q.replaces!, 59780)
+  close(q.take!.replaces!, 62830)
+})

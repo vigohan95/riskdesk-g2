@@ -138,7 +138,11 @@ export function parseCommand(text: string, lang: Lang): Command {
   if (has('减半', '砍一半', '减一半', '解一半', '卖掉一半', '卖一半', '砍半') || word('halve') ||
       (has('half') && (has('cut', 'position') || word('sell'))) || /\bhave my\b.*\bposition\b/.test(low)) return r('halve')
   if (has('平掉', '平仓', '平调', '平了', 'close') || word('flatten')) return r('close')
-  if (has(...STOP) && has(...TAKE, 'profit')) return r('bracket', nums.slice(0, 2))
+  if (has(...STOP) && has(...TAKE, 'profit')) {
+    // Numbers come back in spoken order; put them as [stop, take] by which keyword was said first.
+    const at = (ws: string[]) => Math.min(...ws.map((w) => low.indexOf(w)).filter((i) => i >= 0))
+    return r('bracket', at([...TAKE, 'profit']) < at(STOP) ? [...nums].reverse() : nums)
+  }
   // A single stop / take with two prices means half the sentence was misheard (usually the other leg of a
   // bracket): ask again rather than silently placing only one leg.
   if (has(...STOP)) return nums.length >= 2 ? { intent: 'unknown', sym, nums } : r('stop', nums)

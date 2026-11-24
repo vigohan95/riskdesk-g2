@@ -273,3 +273,56 @@ test('voice: a long refusal wraps onto a second line instead of being cut', () =
     assert.ok(joined.replace(/\s+/g, '').startsWith(full.replace(/\s+/g, '').slice(0, 40)), joined)
   }
 })
+
+// ---- bracket: stop + take-profit on one page (Day 4b, voice "BTC stop 54k take 59k") ----
+const bracket: ActionView = {
+  ...stop, kind: 'bracket', trigger: 54000, estPrice: 54000, refPrice: 55934, estFee: 8.64, estNet: 1071.36,
+  take: { trigger: 59000, estFee: 9.44, estNet: 1170.56, replaces: null }, heard: '比特币止损5万4,止盈5万9。',
+}
+
+test('bracket pages fit without truncation in every status, en + zh, long and short, with replaced legs', () => {
+  const short: ActionView = { ...bracket, side: 'BUY', trigger: 58000, take: { trigger: 53000, estFee: 8.5, estNet: -1068.5, replaces: 52000.5 }, estNet: -1169.28, exposureBefore: -0.02 }
+  const repl: ActionView = { ...bracket, replaces: 59780.2, take: { ...bracket.take!, replaces: 62830 }, far: true }
+  const eth: ActionView = { ...bracket, sym: 'ETH', qty: 0.75, trigger: 1500, refPrice: 1561, take: { trigger: 1750, estFee: 10.5, estNet: 1302.0, replaces: 1760.25 }, estNet: 1116.0, heard: 'ETH stop loss 1500, take profit 1750.' }
+  for (const lang of ['en', 'zh'] as const) {
+    for (const v0 of [bracket, short, repl, eth]) {
+      for (const v of [v0, { ...v0, status: 'armed' as const, remainMs: 4100 }, { ...v0, status: 'placed' as const }]) {
+        for (const p of [confirmPage(v, lang), undoPage(v, lang), resultPage(v, lang)]) {
+          assert.deepEqual(overflows(p), [], `${lang} ${v.status}`)
+          for (const t of p.texts) if (t.name !== 'heard') assert.ok(!t.content.endsWith('…'), `${lang} ${v.status} ${t.name} truncated: ${t.content}`)
+        }
+      }
+    }
+  }
+})
+
+test('bracket confirm page: both legs with side of book and distance, stop money brightest, OCO stated', () => {
+  const by = (p: ReturnType<typeof confirmPage>) => Object.fromEntries(p.texts.map((t) => [t.name, t]))
+  const en = by(confirmPage(bracket, 'en'))
+  assert.equal(en.title.content, 'Stop + take-profit on 0.020 BTC?')
+  assert.equal(en.stop.content, 'Stop bid ≤ 54,000 (−3.5%) → get ≈ 1,071.36 USD')
+  assert.equal(en.take.content, 'Take bid ≥ 59,000 (+5.5%) → get ≈ 1,170.56 USD')
+  assert.ok(en.stop.color > en.take.color)
+  assert.equal(en.fee.content, 'first hit cancels the other · fee ≈ 8.64')
+  assert.equal(by(confirmPage({ ...bracket, take: { ...bracket.take!, replaces: 62830 } }, 'en')).fee.content, 'first hit cancels the other · replaces take 62,830')
+  const zh = by(confirmPage(bracket, 'zh'))
+  assert.equal(zh.stop.content, '止损 买一价 ≤ 54,000（−3.5%）→ 到手约 1,071.36 USD')
+  assert.equal(zh.heard.content, '听到「比特币止损5万4,止盈5万9。」')
+  // short: stop is a buy above the ask, take a buy below it
+  const s = by(confirmPage({ ...bracket, side: 'BUY', trigger: 58000, take: { ...bracket.take!, trigger: 53000, estNet: -1068.5 }, estNet: -1169.28 }, 'en'))
+  assert.match(s.stop.content, /^Stop ask ≥ 58,000 \(\+3\.7%\) → pay ≈ 1,169\.28 USD$/)
+  assert.match(s.take.content, /^Take ask ≤ 53,000 \(−5\.2%\)/)
+  assert.equal(by(undoPage({ ...bracket, status: 'armed', remainMs: 4100 }, 'zh')).title.content, '5 秒后挂 BTC 止损 54,000 + 止盈 59,000')
+  assert.equal(by(resultPage({ ...bracket, status: 'placed' }, 'en')).title.content, 'Set: BTC stop 54,000 · take 59,000')
+  assert.equal(by(resultPage({ ...bracket, status: 'placed' }, 'zh')).detail.content, '纸面挂单，盯实时买一价，先触发的撤掉另一张')
+})
+
+test('splitLine breaks at sentence punctuation, never inside 1,695, never leaves a lone 。 on line two', async () => {
+  const { splitLine } = await import('../src/layout.ts')
+  const zh = '止损 1,750 高于现在的买一价 1,695，会立刻触发，两张都没设。'
+  assert.deepEqual(splitLine(zh, 560), ['止损 1,750 高于现在的买一价 1,695，会立刻触发，', '两张都没设。'])
+  const en = 'Stop-loss 1,750 is above the ETH bid 1,695: it would fire at once. Neither leg set.'
+  const [a, b] = splitLine(en, 560)
+  assert.ok(!/[,.;:!?]/.test(b[0]) && !/\d,$/.test(a), `${a} | ${b}`)
+  assert.equal(`${a} ${b}`, en)
+})

@@ -137,8 +137,8 @@ Long-press on the positions page, say the command, release. The glasses mic stre
 `stt/` (faster-whisper on your own machine, no key, audio never leaves it) transcribes it; the parser above turns it
 into an intent; `server/src/voice.ts` decides what that may become. A voice command can only ever produce:
 
-- the **same confirm page** the menu opens (halve, close, stop-loss / take-profit at the price you said, cancel all),
-  with one more line: what was heard. Nothing moves until you tap, and the 5-second undo still applies;
+- the **same confirm page** the menu opens (halve, close, stop-loss / take-profit at the price you said, cancel all,
+  or both legs at once: see *Stop + take-profit in one sentence* below), with one more line: what was heard. Nothing moves until you tap, and the 5-second undo still applies;
 - a **paper price alert** ("alert me if ETH drops below 1650"), shown with what was heard; one tap removes it again;
 - or a **refusal that says why**, for example:
   - a price off by an order of magnitude (五千九 instead of 五万九): more than 3x or less than 1/3 of the live price;
@@ -163,8 +163,36 @@ transcript from faster-whisper, the plan from `voice.ts`, the page from the back
 Same 312 real Whisper transcripts as above, now through the whole plan (`server/test/voice.test.ts`): no plan acts on
 a different coin, direction, kind or order price than the one spoken. Three alerts keep a misheard number
 (五万八 -> 51,800, 一千六百零五 -> 1,650, "1525.5" -> 1,500); an alert moves no money and is shown with the transcript
-and a one-tap remove. With the shipping settings, 32 of 34 actionable Chinese commands and 31 of 34 English ones
+and a one-tap remove. With the shipping settings, 34 of 36 actionable Chinese commands and 33 of 36 English ones
 give exactly the plan the original sentence gives.
+
+### Stop + take-profit in one sentence (Day 4b)
+
+"BTC stop 58k, take profit 64k" / 「比特币止损五万八，止盈六万四」 opens **one** confirm page with both legs. Each leg
+shows its side of the book, distance from the exit price and the money it would bring; the stop leg is the brightest
+line (it is the loss being capped). One tap, the same 5-second undo, then both rest in the paper book as
+one-cancels-other: whichever fires first sends one market order and drops the other.
+
+| Confirm (zh, replaces both old legs) | Undo window | Both set |
+|---|---|---|
+| ![bracket zh](docs/shots/day4b_confirm_bracket_zh.png) | ![undo zh](docs/shots/day4b_undo_bracket_zh.png) | ![placed zh](docs/shots/day4b_placed_bracket_zh.png) |
+| ![bracket en](docs/shots/day4b_confirm_bracket_en.png) | ![undo en](docs/shots/day4b_undo_bracket_en.png) | ![refused zh](docs/shots/day4b_refused_bracket_zh.png) |
+
+A bracket is placed whole or not at all:
+
+- **exactly two prices** or it asks again. Real Whisper output for 「以太坊止损两千七，止盈三千一」 was
+  `以太坊止損2000期,只迎3000一` (three numbers): refused, instead of guessing which two were meant;
+- **every single-leg check on both legs** (order of magnitude, stop on the losing side, take-profit on the winning
+  side); if either fails nothing is proposed and the page says "neither leg set" (bottom-right shot: an ETH stop
+  above the bid);
+- the two numbers are assigned by which word was said first ("take profit 1750, stop loss 1500" works too), never by
+  which number is bigger;
+- the desk re-checks both legs against the live bid/ask when pricing the page (`ActionDesk.preview('bracket', ...)`)
+  and when the 5 s run out (position changed: nothing placed).
+
+The menu stays at its 10-item SDK limit, so brackets are voice only. Of the 24 bracket transcripts among the 312,
+7 now open exactly the spoken bracket (both prices); the other 17 are refused (on the recording day most of those
+stops were above the price, and one was garbled to 10005 / 17005); none places a different price or a single leg.
 
 ### Risk page (Day 4a)
 
@@ -202,7 +230,7 @@ Needs Node 22.18+ (TypeScript runs natively, the backend has zero dependencies).
 
 ```bash
 cd server && npm start            # http://127.0.0.1:8787  (/api/state, /api/stream, POST /api/preview|confirm|undo|dismiss)
-                                  # preview kinds: halve, close, stop, take (with product) and cancelAll
+                                  # preview kinds: halve, close, stop, take, bracket (with product) and cancelAll
 cd stt && python -m pip install -r requirements.txt && python server.py   # http://127.0.0.1:8788, loads base + small
 cd app && npm install && npm run dev
 npx evenhub-simulator http://127.0.0.1:5173/
@@ -211,7 +239,7 @@ npx evenhub-simulator http://127.0.0.1:5173/
 Voice in the simulator (no mic): start the backend with `DEV_INJECT=1`, long-press in the simulator, then
 `curl -X POST --data-binary @command.wav http://127.0.0.1:8787/api/dev/inject` (16 kHz mono 16-bit WAV) and release.
 
-Tests: `cd server && npm test` (ledger, feed, actions, resting orders, voice parser and plans, risk numbers: 63 tests) and `cd app && npm test` (layout, pages, menu, voice pages, risk page and chart: 29 tests).
+Tests: `cd server && npm test` (ledger, feed, actions, resting orders, voice parser and plans, risk numbers: 66 tests) and `cd app && npm test` (layout, pages, menu, voice pages, bracket pages, risk page and chart: 32 tests).
 
 The demo portfolio is stored in `server/data/fills.json` (resting orders in `orders.json`, alerts in `alerts.json`); delete them to re-seed.
 

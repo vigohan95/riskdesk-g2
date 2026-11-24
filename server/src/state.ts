@@ -55,7 +55,8 @@ export type ActionView = {
   reason: string | null // failed only
   venue: 'sandbox' | 'production'
   refPrice: number // exit price seen at preview
-  trigger: number | null // stop / take
+  trigger: number | null // stop / take; bracket: the stop leg
+  take: { trigger: number; estFee: number; estNet: number; replaces: number | null } | null // bracket: the take-profit leg
   replaces: number | null // stop / take: trigger of the order it replaces
   affected: number | null // cancelAll: orders to cancel (proposed) or cancelled (placed)
   auto: boolean // a resting order fired by itself
@@ -84,6 +85,7 @@ export function actionView(s: ActionState | null, now: number, venue: ActionView
     venue,
     refPrice: p.refPrice,
     trigger: p.trigger,
+    take: p.take,
     replaces: p.replaces,
     affected: s.status === 'placed' && p.kind === 'cancelAll' ? s.affected : p.affected,
     auto: p.auto,

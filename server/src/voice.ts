@@ -7,7 +7,10 @@
 //
 // Safety rules, all here so they can be tested without audio:
 // - Voice only reduces risk or watches prices: halve, close, stop-loss, take-profit, cancel all, alerts.
-//   "Buy" / "sell" (opening or adding) are refused; brackets ("stop 60k take 70k") too, one leg at a time.
+//   "Buy" / "sell" (opening or adding) are refused.
+// - A bracket ("stop 54k take 59k") is one confirm page with both legs, and only with exactly two prices,
+//   each passing every single-leg check below: if either leg fails, nothing is proposed (never one leg).
+//   A third number in the sentence means Whisper split or garbled a price (止损2000期 / 止盈3000一): ask again.
 // - No coin heard -> ask again. The parser never guesses BTC vs ETH (Whisper hears ETH as "F" / "earth").
 // - A spoken price must be within 1/3x..3x of the live price, otherwise it was misheard by an order of
 //   magnitude (六万 vs 六十万) and is refused. A price more than 20% away is allowed but flagged on the page.
@@ -25,6 +28,7 @@ export const WARN_FAR = 0.2
 
 export type VoicePlan =
   | { type: 'preview'; kind: 'halve' | 'close' | 'stop' | 'take' | 'cancelAll'; product: string; trigger: number | null; far: boolean }
+  | { type: 'preview'; kind: 'bracket'; product: string; trigger: number; take: number; far: boolean }
   | { type: 'alert'; product: string; dir: 'below' | 'above'; price: number; far: boolean }
   | { type: 'refuse'; en: string; zh: string }
 
@@ -43,7 +47,6 @@ export function planVoice(cmd: Command, m: Market): VoicePlan {
   const { intent, sym } = cmd
   if (intent === 'unknown') return refuse('Did not catch a command. Hold and say it again.', '没听懂指令，请按住再说一遍。')
   if (intent === 'buy' || intent === 'sell') return refuse('Voice does not open or add to positions. Use halve / close, or the exchange.', '语音不做开仓或加仓，只能减半 / 平仓 / 止损 / 止盈 / 提醒。')
-  if (intent === 'bracket') return refuse('Heard both a stop and a take-profit. Say one at a time.', '同时听到止损和止盈，请一次只说一个。')
   if (intent === 'cancelAll') return { type: 'preview', kind: 'cancelAll', product: '*', trigger: null, far: false }
   if (!sym) return refuse('Which coin? Say BTC or ETH with the command.', '没听清是哪个币，请连币种一起再说一遍。')
   const product = `${sym}-USD`
@@ -66,23 +69,41 @@ export function planVoice(cmd: Command, m: Market): VoicePlan {
   if (!held) return refuse(`No ${sym} position to ${intent === 'halve' ? 'halve' : intent === 'close' ? 'close' : 'protect'}.`, `没有 ${sym} 持仓。`)
   if (intent === 'halve' || intent === 'close') return { type: 'preview', kind: intent, product, trigger: null, far: false }
 
+  if (intent === 'bracket') {
+    if (cmd.nums.length !== 2) {
+      return refuse(`Heard a ${sym} stop and take-profit but not exactly two prices. Say it again, or one at a time.`,
+        `听到 ${sym} 止损加止盈，但没听清两个价格，请再说一遍，或者一次说一个。`)
+    }
+    const [s, t] = cmd.nums
+    const bad = leg('stop', s, sym, live, m.exit(product) ?? live, held > 0) ?? leg('take', t, sym, live, m.exit(product) ?? live, held > 0)
+    if (bad?.type === 'refuse') {
+      return refuse(bad.en.replace(/ Not set\.$/, '') + ' Neither leg set.', bad.zh.replace(/，?没设。$/, '') + '，两张都没设。')
+    }
+    return { type: 'preview', kind: 'bracket', product, trigger: s, take: t, far: far(s, live) || far(t, live) }
+  }
+
   // stop / take: a spoken price, or none (then the same default distance as the menu).
   const p = cmd.nums[0]
   if (p === undefined) return { type: 'preview', kind: intent, product, trigger: null, far: false }
+  const bad = leg(intent, p, sym, live, m.exit(product) ?? live, held > 0)
+  if (bad) return bad
+  return { type: 'preview', kind: intent, product, trigger: p, far: far(p, live) }
+}
+
+/** One stop / take-profit price: refusal, or null when it is plausible and on the right side. */
+function leg(kind: 'stop' | 'take', p: number, sym: Sym, live: number, exit: number, long: boolean): VoicePlan | null {
   const bad = magnitude(p, live, sym)
   if (bad) return bad
-  const exit = m.exit(product) ?? live
-  const long = held > 0
   // stop below the exit for a long, above it for a short; take-profit the other way
-  const mustBeBelow = (intent === 'stop') === long
+  const mustBeBelow = (kind === 'stop') === long
   if (mustBeBelow ? p >= exit : p <= exit) {
-    const name = intent === 'stop' ? ['Stop-loss', '止损'] : ['Take-profit', '止盈']
+    const name = kind === 'stop' ? ['Stop-loss', '止损'] : ['Take-profit', '止盈']
     return refuse(
       `${name[0]} ${fmt(p)} is ${mustBeBelow ? 'above' : 'below'} the ${sym} ${long ? 'bid' : 'ask'} ${fmt(exit)}: it would fire at once. Not set.`,
       `${name[1]} ${fmt(p)} ${mustBeBelow ? '高于' : '低于'}现在的${long ? '买一价' : '卖一价'} ${fmt(exit)}，会立刻触发，没设。`,
     )
   }
-  return { type: 'preview', kind: intent, product, trigger: p, far: far(p, live) }
+  return null
 }
 
 function magnitude(p: number, live: number, sym: Sym): VoicePlan | null {

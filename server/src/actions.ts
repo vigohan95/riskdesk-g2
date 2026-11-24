@@ -15,14 +15,14 @@
 
 import { randomUUID } from 'node:crypto'
 import type { PaperLedger, Quote, Fill } from './ledger.ts'
-import { PaperOrderBook, triggerFor, STOP_PCT, TAKE_PCT } from './orders.ts'
+import { PaperOrderBook, triggerFor, STOP_PCT, TAKE_PCT, type RestingKind } from './orders.ts'
 
 export const UNDO_MS = 5000
 export const PREVIEW_TTL_MS = 30_000
 export const MAX_DRIFT = 0.01 // 1%
 
-export type ActionKind = 'halve' | 'close' | 'stop' | 'take' | 'cancelAll'
-export const ACTION_KINDS: ActionKind[] = ['halve', 'close', 'stop', 'take', 'cancelAll']
+export type ActionKind = 'halve' | 'close' | 'stop' | 'take' | 'bracket' | 'cancelAll'
+export const ACTION_KINDS: ActionKind[] = ['halve', 'close', 'stop', 'take', 'bracket', 'cancelAll']
 export type Proposal = {
   id: string
   kind: ActionKind
@@ -37,8 +37,10 @@ export type Proposal = {
   createdAt: number
   /** The exit price seen at preview (bid for a sell, ask for a buy); confirm refuses if it moved > MAX_DRIFT. */
   refPrice: number
-  /** stop / take: trigger price (== estPrice). */
+  /** stop / take: trigger price (== estPrice). bracket: the stop leg's trigger. */
   trigger: number | null
+  /** bracket only: the take-profit leg (the stop leg is trigger / estFee / estNet / replaces). */
+  take: { trigger: number; estFee: number; estNet: number; replaces: number | null } | null
   /** stop / take: trigger of the order of the same kind this one replaces. */
   replaces: number | null
   /** cancelAll: how many resting orders will be cancelled. */
@@ -50,7 +52,7 @@ export type Proposal = {
   /** Voice: the spoken trigger is more than 20% from the live price (flagged on the confirm page). */
   far: boolean
 }
-export type PreviewOpts = { trigger?: number | null; heard?: string | null; far?: boolean }
+export type PreviewOpts = { trigger?: number | null; take?: number | null; heard?: string | null; far?: boolean }
 export type ActionState =
   | { status: 'proposed'; p: Proposal }
   | { status: 'armed'; p: Proposal; fireAt: number }
@@ -129,7 +131,7 @@ export class ActionDesk {
 
   preview(kind: ActionKind, product: string, opts: PreviewOpts = {}): Proposal {
     const { ledger, book } = this.d
-    const base = { id: this.d.newId(), createdAt: this.d.now(), replaces: null, affected: null, auto: false, heard: opts.heard ?? null, far: opts.far ?? false }
+    const base = { id: this.d.newId(), createdAt: this.d.now(), replaces: null, affected: null, auto: false, heard: opts.heard ?? null, far: opts.far ?? false, take: null }
     if (kind === 'cancelAll') {
       if (!book.size) throw new Error('no open orders')
       return this.propose({
@@ -143,23 +145,18 @@ export class ActionDesk {
     if (!held) throw new Error(`no ${product} position`)
     const side = held > 0 ? 'SELL' : 'BUY'
     const refPrice = side === 'SELL' ? q.bid : q.ask
-    if (kind === 'stop' || kind === 'take') {
-      // Protects the whole position; the money shown is what the fill would be at the trigger.
-      // A spoken trigger (voice) is used as said, rounded to the cent; it must be on the right side of the price.
-      let trigger = triggerFor(kind, held, refPrice, this.d.stopPct, this.d.takePct)
-      if (opts.trigger != null) {
-        trigger = Math.round(opts.trigger * 100) / 100
-        const below = (kind === 'stop') === held > 0
-        if (below ? trigger >= refPrice : trigger <= refPrice) throw new Error(`${kind} ${trigger} would fire at once (${side === 'SELL' ? 'bid' : 'ask'} ${refPrice})`)
-      }
-      const qty = Math.abs(held)
-      const fee = qty * trigger * ledger.feeRate
+    if (kind === 'bracket') {
+      // Stop and take-profit in one confirm: both legs are checked before anything is proposed, so a bracket
+      // is either placed whole or not at all. The money line is the stop leg (the risk being capped).
+      const stop = this.resting('stop', product, held, side, refPrice, opts.trigger)
+      const take = this.resting('take', product, held, side, refPrice, opts.take)
       return this.propose({
-        ...base, kind, product, side, qty, estPrice: trigger, estFee: fee,
-        estNet: side === 'SELL' ? qty * trigger - fee : -(qty * trigger + fee),
-        exposureBefore: held, exposureAfter: 0, refPrice, trigger,
-        replaces: book.find(product, kind)?.trigger ?? null,
+        ...base, ...stop, kind, product, side, refPrice,
+        take: { trigger: take.trigger, estFee: take.estFee, estNet: take.estNet, replaces: take.replaces },
       })
+    }
+    if (kind === 'stop' || kind === 'take') {
+      return this.propose({ ...base, ...this.resting(kind, product, held, side, refPrice, opts.trigger), kind, product, side, refPrice })
     }
     const qtyAbs = kind === 'close' ? Math.abs(held) : Math.abs(held) / 2
     const notional = qtyAbs * refPrice
@@ -210,7 +207,7 @@ export class ActionDesk {
       id: o.id, kind: o.kind, product, side: o.side, qty: o.qty, estPrice: o.trigger, estFee: o.qty * o.trigger * fee,
       estNet: o.side === 'SELL' ? o.qty * o.trigger * (1 - fee) : -o.qty * o.trigger * (1 + fee),
       exposureBefore: this.d.ledger.qty(product), exposureAfter: 0, createdAt: this.d.now(), refPrice: o.trigger,
-      trigger: o.trigger, replaces: null, affected: null, auto: true, heard: null, far: false,
+      trigger: o.trigger, replaces: null, affected: null, auto: true, heard: null, far: false, take: null,
     })
   }
 
@@ -221,11 +218,12 @@ export class ActionDesk {
     const { p } = s
     const { book } = this.d
     if (p.kind === 'cancelAll') { this.set({ status: 'placed', p, affected: book.cancelAll() }); return }
-    if (p.kind === 'stop' || p.kind === 'take') {
+    if (p.kind === 'stop' || p.kind === 'take' || p.kind === 'bracket') {
       const held = this.d.ledger.qty(p.product)
       if (!held || (held > 0 ? 'SELL' : 'BUY') !== p.side) { this.set({ status: 'failed', p, reason: 'position changed, look again' }); return }
-      book.add({ id: this.d.newId(), product: p.product, kind: p.kind, side: p.side, qty: Math.abs(held), trigger: p.trigger!, createdAt: this.d.now() })
-      this.set({ status: 'placed', p, affected: 1 })
+      const legs: [RestingKind, number][] = p.kind === 'bracket' ? [['stop', p.trigger!], ['take', p.take!.trigger]] : [[p.kind, p.trigger!]]
+      for (const [k, trigger] of legs) book.add({ id: this.d.newId(), product: p.product, kind: k, side: p.side, qty: Math.abs(held), trigger, createdAt: this.d.now() })
+      this.set({ status: 'placed', p, affected: legs.length })
       // The market may already be through the trigger (it moved during the 5 s window): fire now, not on the next tick.
       await this.onQuote(p.product)
       return
@@ -254,6 +252,24 @@ export class ActionDesk {
     this.d.book.reconcile(p.product, this.d.ledger.qty(p.product))
     this.d.onFill(fill)
     this.set({ status: 'filled', p, fill, orderId: res.orderId })
+  }
+
+  /** Prices one resting leg. Protects the whole position; the money shown is what the fill would be at the
+   *  trigger. A spoken trigger (voice) is used as said, rounded to the cent; it must be on the right side of the price. */
+  private resting(kind: RestingKind, product: string, held: number, side: 'BUY' | 'SELL', refPrice: number, spoken?: number | null) {
+    const { ledger, book } = this.d
+    let trigger = triggerFor(kind, held, refPrice, this.d.stopPct, this.d.takePct)
+    if (spoken != null) {
+      trigger = Math.round(spoken * 100) / 100
+      const below = (kind === 'stop') === held > 0
+      if (below ? trigger >= refPrice : trigger <= refPrice) throw new Error(`${kind} ${trigger} would fire at once (${side === 'SELL' ? 'bid' : 'ask'} ${refPrice})`)
+    }
+    const qty = Math.abs(held)
+    const fee = qty * trigger * ledger.feeRate
+    return {
+      qty, estPrice: trigger, estFee: fee, estNet: side === 'SELL' ? qty * trigger - fee : -(qty * trigger + fee),
+      exposureBefore: held, exposureAfter: 0, trigger, replaces: book.find(product, kind)?.trigger ?? null,
+    }
   }
 
   private propose(p: Proposal): Proposal {

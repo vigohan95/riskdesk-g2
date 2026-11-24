@@ -24,10 +24,27 @@ test('risk-reducing intents become previews, never orders', () => {
   assert.equal(kind(planVoice(cmd('stop', 'BTC'), mkt())), 'preview:stop') // no price: menu default distance
 })
 
-test('opening / adding and brackets are refused', () => {
-  for (const c of [cmd('buy', 'BTC', [0.01]), cmd('sell', 'ETH', [1]), cmd('bracket', 'BTC', [50000, 60000]), cmd('unknown', 'BTC', [3])]) {
+test('opening / adding is refused', () => {
+  for (const c of [cmd('buy', 'BTC', [0.01]), cmd('sell', 'ETH', [1]), cmd('unknown', 'BTC', [3])]) {
     assert.equal(planVoice(c, mkt()).type, 'refuse', c.intent)
   }
+})
+
+test('bracket: both legs on one confirm page, or nothing', () => {
+  assert.deepEqual(planVoice(cmd('bracket', 'BTC', [54000, 59000]), mkt()), { type: 'preview', kind: 'bracket', product: 'BTC-USD', trigger: 54000, take: 59000, far: false })
+  // either leg failing refuses the whole bracket: wrong side, order of magnitude
+  assert.equal(planVoice(cmd('bracket', 'BTC', [61000, 64000]), mkt()).type, 'refuse') // stop above the bid
+  assert.match((planVoice(cmd('bracket', 'BTC', [54000, 55000]), mkt()) as any).zh, /^止盈 55,000 低于.*会立刻触发，两张都没设。$/)
+  assert.match((planVoice(cmd('bracket', 'ETH', [1500, 17005]), mkt()) as any).en, /^Heard 17,005, but ETH is 1,562. Probably misheard; say it again. Neither leg set.$/)
+  assert.equal(planVoice(cmd('bracket', 'BTC', [54000, 55000]), mkt()).type, 'refuse') // take below the bid
+  assert.equal(planVoice(cmd('bracket', 'ETH', [1500, 17005]), mkt()).type, 'refuse') // 一千七百五 heard as 17005
+  // anything but exactly two prices: ask again (止损2000期 / 止盈3000一 -> a stray third number)
+  for (const n of [[], [54000], [54000, 59000, 1]]) assert.equal(planVoice(cmd('bracket', 'BTC', n), mkt()).type, 'refuse', String(n))
+  // a short position mirrors the sides
+  assert.equal(kind(planVoice(cmd('bracket', 'BTC', [58000, 53000]), mkt({ 'BTC-USD': -0.02 }))), 'preview:bracket')
+  const far = planVoice(cmd('bracket', 'BTC', [54000, 70000]), mkt())
+  assert.equal(far.type === 'preview' && far.far, true)
+  assert.equal(planVoice(cmd('bracket', 'BTC', [54000, 59000]), mkt({})).type, 'refuse') // no position
 })
 
 test('no coin heard: ask again, never guess', () => {
@@ -90,8 +107,8 @@ test('312 real transcripts: no plan acts on the wrong coin, side, kind or price'
       const e = it.expect
       const eKind = e.intent === 'alertBelow' || e.intent === 'alertAbove' ? 'alert' : `preview:${e.intent}`
       const eProduct = e.intent === 'cancelAll' ? '*' : `${e.sym}-USD`
-      const gotPrice = plan.type === 'alert' ? plan.price : plan.trigger
-      const ePrice = ['stop', 'take', 'alertBelow', 'alertAbove'].includes(e.intent) ? e.nums[0] ?? null : null
+      const gotPrice = plan.type === 'alert' ? plan.price : plan.kind === 'bracket' ? `${plan.trigger}/${plan.take}` : plan.trigger
+      const ePrice = e.intent === 'bracket' ? `${e.nums[0]}/${e.nums[1]}` : ['stop', 'take', 'alertBelow', 'alertAbove'].includes(e.intent) ? e.nums[0] ?? null : null
       const dirOk = plan.type !== 'alert' || plan.dir === (e.intent === 'alertBelow' ? 'below' : 'above')
       if (kind(plan) !== eKind || plan.product !== eProduct || gotPrice !== ePrice || !dirOk) {
         ;(plan.type === 'alert' && eKind === 'alert' && plan.product === eProduct && dirOk ? wrongAlertPrice : wrong)
@@ -104,12 +121,12 @@ test('312 real transcripts: no plan acts on the wrong coin, side, kind or price'
   // Whisper misheard the number itself (五万八 -> 51800, 一千六百零五 -> 1650, "1525.5" -> "1500-25.5"); the parser cannot
   // know. An alert moves no money, is shown with what was heard, and one tap removes it. Pinned so it cannot grow.
   assert.equal(wrongAlertPrice.length, 3, wrongAlertPrice.join(' | '))
-  assert.ok(acted > 100 && refused > 100, `acted ${acted}, refused ${refused}`) // buy / sell / brackets are refused by design
+  assert.ok(acted > 100 && refused > 100, `acted ${acted}, refused ${refused}`) // buy / sell are refused by design
 })
 
 // How often the user gets the same plan from a transcript as from the sentence they actually said
-// (only commands whose reference sentence is actionable at the 11-21 prices: 34 per configuration).
-test('shipping STT configs: same plan as the spoken sentence on 32/34 (zh small+prompt) and 31/34 (en base+prompt)', () => {
+// (only commands whose reference sentence is actionable at the 11-21 prices: 36 per configuration, brackets included).
+test('shipping STT configs: same plan as the spoken sentence on 34/36 (zh small+prompt) and 33/36 (en base+prompt)', () => {
   type Item = { lang: Lang; ref: string; stt: { model: string; prompt: boolean; text: string }[] }
   const fx: { items: Item[] } = JSON.parse(readFileSync(new URL('./fixtures/voice-108.json', import.meta.url), 'utf8'))
   const m = mkt()
@@ -124,8 +141,8 @@ test('shipping STT configs: same plan as the spoken sentence on 32/34 (zh small+
       if (JSON.stringify(understand(s.text, it.lang, m).plan) === ref) score[k][0]++
     }
   }
-  assert.deepEqual(score['zh small+p'], [32, 34])
-  assert.deepEqual(score['en base+p'], [31, 34])
+  assert.deepEqual(score['zh small+p'], [34, 36])
+  assert.deepEqual(score['en base+p'], [33, 36])
 })
 
 test('recording caps at MAX_AUDIO_S and concatenates in order', () => {

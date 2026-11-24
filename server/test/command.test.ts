@@ -80,5 +80,9 @@ test('a stop or take with two prices (other bracket leg misheard) asks again ins
   assert.equal(parseCommand('比特币指损6万1,指赢6万4。', 'zh').intent, 'bracket')
   assert.equal(parseCommand('以太坊止损2000期,只迎3000一。', 'zh').intent, 'bracket')
   assert.equal(parseCommand('比特币止损6万1,止什么6万4', 'zh').intent, 'unknown')
+  // bracket numbers come back as [stop, take] whichever leg is said first
+  assert.deepEqual(parseCommand('比特币止损5万4,止盈5万9。', 'zh'), { intent: 'bracket', sym: 'BTC', nums: [54000, 59000] })
+  assert.deepEqual(parseCommand('比特币止盈5万9，止损5万4', 'zh'), { intent: 'bracket', sym: 'BTC', nums: [54000, 59000] })
+  assert.deepEqual(parseCommand('ETH take profit 1750, stop loss 1500.', 'en'), { intent: 'bracket', sym: 'ETH', nums: [1500, 1750] })
   assert.deepEqual(parseCommand('Set a stop on ETH at one thousand four hundred eighty', 'en'), { intent: 'stop', sym: 'ETH', nums: [1480] })
 })

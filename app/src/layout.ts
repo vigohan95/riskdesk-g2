@@ -58,13 +58,15 @@ export type ActionView = {
   venue: 'sandbox' | 'production'
   refPrice?: number
   trigger?: number | null
+  /** bracket: the take-profit leg (trigger / estFee / estNet / replaces above are the stop leg) */
+  take?: { trigger: number; estFee: number; estNet: number; replaces: number | null } | null
   replaces?: number | null
   affected?: number | null
   auto?: boolean
   heard?: string | null
   far?: boolean
 }
-export type ActionKind = 'halve' | 'close' | 'stop' | 'take' | 'cancelAll'
+export type ActionKind = 'halve' | 'close' | 'stop' | 'take' | 'bracket' | 'cancelAll'
 export type PageKind = 'pnl' | 'confirm' | 'undo' | 'result' | 'voice' | 'notice' | 'risk'
 /** An order in flight always wins; then a recording in progress; then a short notice; else positions. */
 export function pageKind(s: DeskState | null): PageKind {
@@ -195,7 +197,42 @@ export function overflows(p: Page): string[] {
 
 export const pxs = (x: number) => fmtNum(x, priceDigits(x))
 const pct = (v: ActionView) => signed(((v.trigger! - v.refPrice!) / v.refPrice!) * 100, 1)
-const isResting = (v: ActionView) => v.kind === 'stop' || v.kind === 'take'
+const isResting = (v: ActionView) => v.kind === 'stop' || v.kind === 'take' || v.kind === 'bracket'
+const pctOf = (x: number, ref: number) => signed(((x - ref) / ref) * 100, 1)
+/** Bracket: the resting orders it replaces, e.g. "stop 59,780 · take 62,830" (only the legs that exist). */
+const replacedLegs = (v: ActionView, s: string, t: string) =>
+  [v.replaces ? `${s} ${pxs(v.replaces)}` : '', v.take?.replaces ? `${t} ${pxs(v.take.replaces)}` : ''].filter(Boolean).join(' · ')
+
+/** Bracket (voice: "BTC stop 54k take 59k"): both legs on one page. The stop leg's money is the brightest
+ *  line: it is the loss being capped. Sell legs watch the bid, buy legs (short) the ask. */
+const B = {
+  en: {
+    title: (v: ActionView) => `Stop + take-profit on ${fmtQty(v.qty)} ${v.sym}?`,
+    leg: (v: ActionView, k: 'S' | 'T', x: number, net: number) => {
+      const book = v.side === 'SELL' ? 'bid' : 'ask'
+      const le = (k === 'S') === (v.side === 'SELL') ? '≤' : '≥'
+      return `${k === 'S' ? 'Stop' : 'Take'} ${book} ${le} ${pxs(x)} (${pctOf(x, v.refPrice!)}%) → ${net >= 0 ? 'get' : 'pay'} ≈ ${fmtNum(Math.abs(net), 2)} USD`
+    },
+    fee: (v: ActionView) => `first hit cancels the other · ${replacedLegs(v, 'stop', 'take') ? `replaces ${replacedLegs(v, 'stop', 'take')}` : `fee ≈ ${fmtNum(v.estFee, 2)}`}`,
+    armed: (v: ActionView, s: number) => `Setting ${v.sym} stop ${pxs(v.trigger!)} + take ${pxs(v.take!.trigger)} in ${s} s`,
+    money: (v: ActionView) => `at stop ≈ ${fmtNum(Math.abs(v.estNet), 2)} · at take ≈ ${fmtNum(Math.abs(v.take!.estNet), 2)} USD`,
+    placed: (v: ActionView) => `Set: ${v.sym} stop ${pxs(v.trigger!)} · take ${pxs(v.take!.trigger)}`,
+    oco: '; the first hit cancels the other',
+  },
+  zh: {
+    title: (v: ActionView) => `${v.sym} ${fmtQty(v.qty)} 同时设止损 + 止盈？`,
+    leg: (v: ActionView, k: 'S' | 'T', x: number, net: number) => {
+      const book = v.side === 'SELL' ? '买一价' : '卖一价'
+      const le = (k === 'S') === (v.side === 'SELL') ? '≤' : '≥'
+      return `${k === 'S' ? '止损' : '止盈'} ${book} ${le} ${pxs(x)}（${pctOf(x, v.refPrice!)}%）→ ${net >= 0 ? '到手' : '付出'}约 ${fmtNum(Math.abs(net), 2)} USD`
+    },
+    fee: (v: ActionView) => `先触发的撤掉另一张 · ${replacedLegs(v, '止损', '止盈') ? `替换原来的${replacedLegs(v, '止损', '止盈')}` : `手续费约 ${fmtNum(v.estFee, 2)}`}`,
+    armed: (v: ActionView, s: number) => `${s} 秒后挂 ${v.sym} 止损 ${pxs(v.trigger!)} + 止盈 ${pxs(v.take!.trigger)}`,
+    money: (v: ActionView) => `止损时约 ${fmtNum(Math.abs(v.estNet), 2)} · 止盈时约 ${fmtNum(Math.abs(v.take!.estNet), 2)} USD`,
+    placed: (v: ActionView) => `已设 ${v.sym} 止损 ${pxs(v.trigger!)} · 止盈 ${pxs(v.take!.trigger)}`,
+    oco: '，先触发的撤掉另一张',
+  },
+}
 
 /** Texts for stop / take-profit / cancel-all. Same page geometry as halve / close. */
 const R = {
@@ -283,6 +320,19 @@ function heardLine(v: ActionView, lang: Lang): Text[] {
 
 export function confirmPage(v: ActionView, lang: Lang): Page {
   const t = A[lang]
+  if (v.kind === 'bracket' && v.take) {
+    const b = B[lang]
+    return {
+      texts: [
+        box(1, 'title', 0, b.title(v), 4, { h: boxH(1) + 2, border: true }),
+        box(2, 'stop', 54, b.leg(v, 'S', v.trigger!, v.estNet), 4),
+        box(3, 'take', 98, b.leg(v, 'T', v.take.trigger, v.take.estNet), 3),
+        box(4, 'fee', 142, b.fee(v), 2),
+        ...heardLine(v, lang),
+        box(5, 'foot', FOOTER_Y, t.confirmFoot, 3, { capture: true }),
+      ],
+    }
+  }
   if (v.kind === 'cancelAll' || isResting(v)) {
     const r = R[lang]
     return {
@@ -313,11 +363,12 @@ export function undoPage(v: ActionView, lang: Lang): Page {
   const sending = v.status === 'sending'
   const sec = Math.max(0, Math.ceil((v.remainMs ?? 0) / 1000))
   const other = v.kind === 'cancelAll' || isResting(v)
+  const bracket = v.kind === 'bracket' && !!v.take
   return {
     texts: [
-      box(1, 'title', 0, sending ? t.sending(v) : other ? R[lang].armed(v, sec) : t.armed(v, sec), 4, { h: boxH(1) + 2, border: true }),
+      box(1, 'title', 0, sending ? t.sending(v) : bracket ? B[lang].armed(v, sec) : other ? R[lang].armed(v, sec) : t.armed(v, sec), 4, { h: boxH(1) + 2, border: true }),
       box(2, 'dots', 70, sending ? '' : dots(v.remainMs ?? 0), 4),
-      box(3, 'money', 126, other ? R[lang].money(v) : t.money(v), 2),
+      box(3, 'money', 126, bracket ? B[lang].money(v) : other ? R[lang].money(v) : t.money(v), 2),
       box(4, 'foot', FOOTER_Y, sending ? t.sendingFoot : t.undoFoot, 4, { capture: true }),
     ],
   }
@@ -329,7 +380,7 @@ export function resultPage(v: ActionView | null, lang: Lang, note?: string): Pag
   let detail = ''
   let venue = ''
   if (v?.status === 'filled') { line = v.auto ? R[lang].hit(v) : t.filled(v); detail = t.pos(v); if (v.venue === 'sandbox') venue = t.sandbox }
-  else if (v?.status === 'placed') { line = R[lang].placed(v); detail = R[lang].placedDetail(v) }
+  else if (v?.status === 'placed') { line = v.kind === 'bracket' && v.take ? B[lang].placed(v) : R[lang].placed(v); detail = R[lang].placedDetail(v) + (v.kind === 'bracket' ? B[lang].oco : '') }
   else if (v?.status === 'undone') line = t.undone
   else if (v?.status === 'failed') { line = t.failed; detail = v.reason ?? '' }
   return {
@@ -388,14 +439,19 @@ export function voicePage(s: NonNullable<DeskState['voice']>, lang: Lang): Page 
 export function splitLine(text: string, w: number): [string, string] {
   if (getTextWidth(text) <= w) return [text, '']
   const chars = [...text]
-  let cut = 0, lastBreak = 0
+  let cut = 0, lastBreak = 0, lastPunct = 0
   for (let i = 1; i <= chars.length; i++) {
     if (getTextWidth(chars.slice(0, i).join('')) > w) break
     cut = i
     const c = chars[i - 1]
-    if (c === ' ' || /[　-鿿＀-￯,.;:]/.test(c)) lastBreak = i
+    // A digit-grouping comma (1,695) is not a break; a comma or full stop followed by a space is.
+    const sentence = /[，。；：、]/.test(c) || (/[,.;:]/.test(c) && chars[i] === ' ')
+    if (sentence) lastPunct = i
+    if (c === ' ' || sentence || /[　-鿿＀-￯]/.test(c)) lastBreak = i
   }
-  const at = lastBreak > cut / 2 ? lastBreak : cut
+  let at = lastPunct > cut / 2 ? lastPunct : lastBreak > cut / 2 ? lastBreak : cut
+  // Never start the second line with closing punctuation (a lone "。"): pull one character down with it.
+  while (at > 1 && /^[，。；：、）」』,.;:!?！？]/.test(chars[at] ?? '')) at--
   return [chars.slice(0, at).join('').trimEnd(), chars.slice(at).join('').trimStart()]
 }
 

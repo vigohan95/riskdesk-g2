@@ -240,7 +240,7 @@ async function main() {
         return { ...say(`Alert set: ${sym} ${plan.dir} ${fmtPx(plan.price)}${rp[0]}${warn[0]}`, `已设提醒：${sym} ${plan.dir === 'below' ? '跌破' : '涨破'} ${fmtPx(plan.price)}${rp[1]}${warn[1]}`, text, { cmd }, id), ok: true }
       }
       try {
-        const p = preview(plan.kind, plan.product, { trigger: plan.trigger, heard: text, far: plan.far })
+        const p = preview(plan.kind, plan.product, { trigger: plan.trigger, take: plan.kind === 'bracket' ? plan.take : null, heard: text, far: plan.far })
         return { ok: true, heard: text, cmd, proposal: p }
       } catch (e) {
         return say(`Not possible: ${(e as Error).message}`, `做不了：${(e as Error).message}`, text, { cmd })
