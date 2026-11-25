@@ -53,7 +53,7 @@ export type ActionView = {
   remainMs: number | null // armed only: time left to undo
   fillPrice: number | null // filled only
   reason: string | null // failed only
-  venue: 'sandbox' | 'production'
+  venue: 'sandbox' | 'production' | 'paper'
   refPrice: number // exit price seen at preview
   trigger: number | null // stop / take; bracket: the stop leg
   take: { trigger: number; estFee: number; estNet: number; replaces: number | null } | null // bracket: the take-profit leg

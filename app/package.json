@@ -7,7 +7,9 @@
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "pack": "node scripts/pack.mjs",
-    "test": "node --test test/*.test.ts"
+    "test": "node --test test/*.test.ts",
+    "web": "vite --config vite.web.config.ts",
+    "web:build": "vite build --config vite.web.config.ts"
   },
   "dependencies": {
     "@evenrealities/even_hub_sdk": "0.0.16",

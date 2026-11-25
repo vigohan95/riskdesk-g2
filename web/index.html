@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RiskDesk G2 Demo</title>
+<style>
+  :root { --bg: #f6f7f5; --fg: #1b1d1a; --muted: #5d625a; --line: #d9dcd5; --btn: #ffffff; --accent: #1f7a36; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #121411; --fg: #e8ebe5; --muted: #9aa094; --line: #2d312b; --btn: #1c1f1a; --accent: #5fd377; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 900px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 24px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  .stage { display: flex; justify-content: center; }
+  .frame { padding: 14px; border-radius: 18px; background: #0a0a0a; box-shadow: 0 6px 24px rgba(0,0,0,.25); max-width: 100%; overflow: hidden; }
+  #lens-wrap { width: 576px; height: 288px; transform-origin: top left; }
+  #lens { font: 20px/28px "Segoe UI", system-ui, sans-serif; cursor: pointer; user-select: none; }
+  #status { text-align: center; color: var(--muted); font-size: 13px; margin: 10px 0 16px; min-height: 20px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
+  button { font: inherit; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--btn); color: var(--fg); cursor: pointer; }
+  button:hover { border-color: var(--accent); }
+  button:disabled { opacity: .5; cursor: default; }
+  .say { display: flex; gap: 8px; max-width: 640px; margin: 0 auto 8px; }
+  .say input { flex: 1; min-width: 0; font: inherit; padding: 8px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--btn); color: var(--fg); }
+  .chip { font-size: 13px; padding: 5px 10px; }
+  #menu-help { text-align: center; color: var(--muted); font-size: 13px; }
+  section { border-top: 1px solid var(--line); margin-top: 24px; padding-top: 16px; }
+  h2 { font-size: 16px; margin: 0 0 8px; }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin: 4px 0; }
+  code { font-size: 13px; }
+  a { color: var(--accent); }
+  kbd { font-size: 12px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>RiskDesk for Even Realities G2: try it in the browser</h1>
+  <p class="sub">The real glasses app and the real backend logic, running in this tab on live Coinbase prices. Nothing to install, no keys, no money.</p>
+
+  <div class="stage"><div class="frame"><div id="lens-wrap"><div id="lens" aria-label="Glasses display, 576 by 288"></div></div></div></div>
+  <div id="status" role="status"></div>
+
+  <div class="row">
+    <button id="b-tap" type="button">Tap</button>
+    <button id="b-double" type="button">Double tap</button>
+    <button id="b-menu" type="button">Menu</button>
+    <button id="b-up" type="button" aria-label="Scroll up">&uarr;</button>
+    <button id="b-down" type="button" aria-label="Scroll down">&darr;</button>
+  </div>
+  <p id="menu-help" hidden>Menu open: click an item, or use &uarr; &darr; and Tap. Double tap closes it.</p>
+
+  <div class="say">
+    <input id="say" type="text" placeholder="Hold to talk: type what you would say, e.g. Close my Bitcoin position" aria-label="Voice command (typed)">
+    <button id="b-say" type="button">Hold &amp; say</button>
+  </div>
+  <div class="row" id="examples"></div>
+
+  <section>
+    <h2>Things to try</h2>
+    <ul>
+      <li><b>Tap</b> on the positions page opens the risk page for each holding (24 h chart with entry / stop / take lines, money at the stop). Tap again for the next one; double tap goes back.</li>
+      <li><b>Menu</b> &rarr; Halve BTC &rarr; the confirm page shows what is sold, at about which price, the fee and the position before &rarr; after. <b>Tap</b> arms it; you get 5 dots to <b>tap</b> again and take it back.</li>
+      <li>Say <i>BTC stop at &hellip;, take profit at &hellip;</i>: one confirm page with both legs. The stop then rests against the live bid; the positions page shows the distance to it.</li>
+      <li>Say a price that is off by 10x (the last example) or <i>Buy half an ETH</i>: the glasses refuse and say why, instead of guessing.</li>
+      <li><b>Double tap</b> on the positions page switches English / 中文.</li>
+    </ul>
+    <p>Keys: <kbd>Enter</kbd> tap, <kbd>Esc</kbd> double tap, <kbd>&uarr;</kbd><kbd>&darr;</kbd> scroll, <kbd>m</kbd> menu.</p>
+  </section>
+
+  <section>
+    <h2>What is the same as on the glasses, and what is not</h2>
+    <ul>
+      <li><b>Same code.</b> The page runs the unchanged glasses app (<code>app/src/main.ts</code>, which only lays out pages and forwards taps) and the unchanged desk (<code>server/src/desk.ts</code>: feed, paper ledger, actions, voice parser) that the Node backend serves.</li>
+      <li><b>Live data.</b> Prices are the Coinbase Advanced Trade public WebSocket; the demo fills are priced at the real 1-minute candle of the time they claim. If the feed stalls, prices dim and say <i>old</i>.</li>
+      <li><b>Orders are paper here.</b> With the backend, each confirmed action also sends a Coinbase sandbox <i>Create Order</i>; the sandbox does not accept browser calls, so this page books the paper fill at the live bid/ask only.</li>
+      <li><b>Voice is typed.</b> On the glasses the mic audio goes to local faster-whisper; here your text is used as the transcript and goes through the same parser and safety checks.</li>
+      <li><b>Display is an approximation.</b> Glyphs are placed at the firmware font's advance widths, but drawn with a browser font. The <a href="https://github.com/vigohan95/riskdesk-g2#readme">README</a> screenshots are the simulator's real 576&times;288 buffer.</li>
+      <li>Your demo portfolio is kept in this browser only. <button id="b-reset" type="button">Reset demo</button></li>
+    </ul>
+  </section>
+</main>
+<script>
+  // Fit the 576 px lens on narrow screens.
+  function fit() {
+    const w = document.getElementById('lens-wrap'), avail = Math.min(576, document.documentElement.clientWidth - 32 - 28)
+    const s = avail / 576
+    w.style.transform = s < 1 ? `scale(${s})` : ''
+    w.parentElement.style.height = s < 1 ? `${288 * s + 28}px` : ''
+    w.parentElement.style.width = s < 1 ? `${576 * s + 28}px` : ''
+  }
+  addEventListener('resize', fit); fit()
+</script>
+<script type="module" src="./src/boot.ts"></script>
+</body>
+</html>

@@ -55,7 +55,7 @@ export type ActionView = {
   remainMs: number | null
   fillPrice: number | null
   reason: string | null
-  venue: 'sandbox' | 'production'
+  venue: 'sandbox' | 'production' | 'paper'
   refPrice?: number
   trigger?: number | null
   /** bracket: the take-profit leg (trigger / estFee / estNet / replaces above are the stop leg) */
@@ -281,6 +281,7 @@ const A = {
     failed: 'Not executed. Nothing changed.',
     resultFoot: 'tap = back to positions',
     sandbox: 'Coinbase sandbox order, booked in the paper ledger',
+    paper: 'Browser demo: paper fill at the live bid/ask',
   },
   zh: {
     title: (v: ActionView) => `${v.sym} ${v.kind === 'close' ? '全部平仓' : '减半'}？`,
@@ -298,6 +299,7 @@ const A = {
     failed: '没有执行，持仓没变。',
     resultFoot: '单击 = 回到持仓',
     sandbox: 'Coinbase 沙盒下单，已记入纸面账本',
+    paper: '网页演示：按实时买卖价记入纸面账本',
   },
 }
 
@@ -379,7 +381,7 @@ export function resultPage(v: ActionView | null, lang: Lang, note?: string): Pag
   let line = note ?? ''
   let detail = ''
   let venue = ''
-  if (v?.status === 'filled') { line = v.auto ? R[lang].hit(v) : t.filled(v); detail = t.pos(v); if (v.venue === 'sandbox') venue = t.sandbox }
+  if (v?.status === 'filled') { line = v.auto ? R[lang].hit(v) : t.filled(v); detail = t.pos(v); if (v.venue === 'sandbox') venue = t.sandbox; else if (v.venue === 'paper') venue = t.paper }
   else if (v?.status === 'placed') { line = v.kind === 'bracket' && v.take ? B[lang].placed(v) : R[lang].placed(v); detail = R[lang].placedDetail(v) + (v.kind === 'bracket' ? B[lang].oco : '') }
   else if (v?.status === 'undone') line = t.undone
   else if (v?.status === 'failed') { line = t.failed; detail = v.reason ?? '' }
