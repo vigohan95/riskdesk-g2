@@ -111,8 +111,13 @@ L = {
         placed=('Placed. Whichever fires first cancels the other.', ''),
         risk1=('The risk page now shows the stop (S) and target (T) on the real 24h chart',
                'and, brightest, what you would have lost if the stop fires.'),
-        menu=('Swipe for the menu: one tap per action.', ''),
-        undo=('Halve BTC, confirm... then tap again within 5 seconds.', 'Undone: nothing reached the exchange.'),
+        menu=('Swipe for the menu. The first item is what needs doing now:',
+              'BTC is covered both ways, ETH has no stop, so "Stop-loss ETH" is on top.'),
+        sugg=('One tap on it: a stop at the default distance, on the same confirm page.', ''),
+        placed2=('Placed. Both positions now have a stop.', ''),
+        menu2=('The menu re-orders itself. Any action can still be taken back:', ''),
+        undo=('{act}, confirm... then tap again within 5 seconds.', 'Undone: nothing reached the exchange.'),
+        act=dict(halve='Halve {s}', close='Close {s}', stop='Stop-loss {s}', take='Take-profit {s}'),
         mag=('Misheard numbers are refused, never guessed:', '"ETH stop at one sixty-five" is not an ETH price.'),
         buy=('Voice never opens positions.', '"Buy one bitcoin" is refused and the page says why.'),
         clip_br='v_br_en', clip_mag='v_mag_en', clip_buy='d04',
@@ -126,8 +131,12 @@ L = {
         armed=('单击确认，之后还有 5 秒可以撤回。', ''),
         placed=('已挂上：先触发的那张自动撤掉另一张。', ''),
         risk1=('风险页的走势图上多了止损 S 和止盈 T 两条线', '最亮的一行：止损触发时这笔一共亏多少。'),
-        menu=('上滑出菜单：每个动作一下点按。', ''),
-        undo=('BTC 减半，确认……5 秒内再点一下', '已撤回：什么都没发到交易所。'),
+        menu=('上滑出菜单：第一项就是现在最该做的事。', 'BTC 止损止盈都有了，ETH 还没止损，所以「ETH 设止损」排在最上面。'),
+        sugg=('点一下：按默认距离挂止损，同样先出确认页。', ''),
+        placed2=('已挂上：两个仓位现在都有止损了。', ''),
+        menu2=('菜单会跟着持仓重新排序。任何动作都还能撤回：', ''),
+        undo=('{act}，确认……5 秒内再点一下', '已撤回：什么都没发到交易所。'),
+        act=dict(halve='{s} 减半', close='{s} 全部平仓', stop='{s} 设止损', take='{s} 设止盈'),
         mag=('听错的数字直接拒绝，不瞎猜：', '「以太坊止损一百六十五」不是以太坊的价格。'),
         buy=('语音永远不开新仓。', '「买一个比特币」被拒，并说明原因。'),
         clip_br='v_br_zh', clip_mag='v_mag_zh', clip_buy='v_buy_zh',
@@ -152,14 +161,27 @@ caption(*L['placed'])
 wait_for(lambda s: not s['action'], 12); hold(0.6)
 caption(*L['risk1']); hold(7.5)  # the result page returns to the risk page it was started from
 gesture('double_click', L['dtap']); hold(1.5)
+# the menu puts the suggested action first (app/src/layout.ts suggest): with BTC bracketed, ETH's missing stop leads
 caption(*L['menu'])
+gesture('context_menu', L['menu_g']); hold(4.0)
+gesture('click', L['tap'])
+s = wait_for(lambda s: s['action'] and s['action']['status'] == 'proposed', 8)
+assert s['action']['kind'] == 'stop' and s['action']['sym'] == 'ETH', s['action']
+hold(0.4); caption(*L['sugg']); hold(4.0)
+gesture('click', L['tap']); caption(*L['armed'])
+wait_for(lambda s: s['action'] and s['action']['status'] == 'placed', 12)
+caption(*L['placed2'])
+wait_for(lambda s: not s['action'], 12); hold(1.0)
+caption(*L['menu2'])
 gesture('context_menu', L['menu_g']); hold(2.5)
-gesture('click', L['tap']); hold(1.5)
-caption(L['undo'][0], '')
+gesture('click', L['tap'])
+p = wait_for(lambda s: s['action'] and s['action']['status'] == 'proposed', 8)['action']
+act = L['act'][p['kind']].format(s=p['sym'])
+hold(0.4); caption(L['undo'][0].format(act=act), '')
 hold(2.0)
 gesture('click', L['tap']); hold(1.6)
 gesture('click', L['tap']); hold(0.6)
-caption(*L['undo'])
+caption(L['undo'][0].format(act=act), L['undo'][1])
 wait_for(lambda s: not s['action'], 12); hold(1.0)
 caption(*L['mag'])
 s = say(L['clip_mag'], L['hold'])

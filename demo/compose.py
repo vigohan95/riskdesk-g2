@@ -22,7 +22,7 @@ W, H, FPS = 1920, 1080, args.fps
 SCALE = 2.25
 GW, GH = int(576 * SCALE), int(288 * SCALE)
 GX, GY = (W - GW) // 2, 118
-TITLE, END, BRIDGE = 5.0, 6.0, 2.5
+TITLE, END, BRIDGE = 5.0, 7.0, 2.5
 BG, FG, DIM, ACC = (12, 15, 14), (236, 240, 238), (150, 160, 156), (64, 230, 110)
 SR = 16000
 
@@ -95,8 +95,9 @@ if zh:
                   ('Even Hub 模拟器实录，用自动化接口按键；Coinbase 实时行情；只有纸面持仓和 Coinbase 沙盒，没有真钱', font(28, True), 50, DIM)])
     endc = card([('github.com/vigohan95/riskdesk-g2', font(60, True, True), 110, ACC),
                   ('黑客松期间（2026-11-23 至 11-29）从零写成', font(32, True), 56, FG),
-                  ('测试：后端 66 + 眼镜端 32；312 条真实 Whisper 转写跑完整流程，0 条错单', font(32, True), 56, FG),
-                  ('语音识别在本机（faster-whisper），音频不出这台机器', font(32, True), 56, FG)])
+                  ('测试：后端 66 + 眼镜端 34；312 条真实 Whisper 转写跑完整流程，0 条错单', font(32, True), 56, FG),
+                  ('语音识别在本机（faster-whisper），音频不出这台机器', font(32, True), 76, FG),
+                  ('浏览器里直接试（不用眼镜、不用装）：vigohan95.github.io/riskdesk-g2', font(40, True, True), 60, ACC)])
     bridge_lines = [('Same flow in English', font(56, False, True), 90, ACC),
                     ('同一套流程，英文语音', font(34, True), 60, DIM)]
 else:
@@ -106,8 +107,9 @@ else:
                   ('Recorded in the Even Hub simulator, driven by its automation API. Live Coinbase prices; paper portfolio and Coinbase sandbox only, no real money.', font(26, False), 50, DIM)])
     endc = card([('github.com/vigohan95/riskdesk-g2', font(60, False, True), 110, ACC),
                   ('Written from scratch during the hackathon, Nov 23-29, 2026', font(32, False), 56, FG),
-                  ('Tests: backend 66 + glasses app 32; 312 real Whisper transcripts through the full path, 0 wrong orders', font(32, False), 56, FG),
-                  ('Speech-to-text runs locally (faster-whisper): audio never leaves the machine', font(32, False), 56, FG)])
+                  ('Tests: backend 66 + glasses app 34; 312 real Whisper transcripts through the full path, 0 wrong orders', font(32, False), 56, FG),
+                  ('Speech-to-text runs locally (faster-whisper): audio never leaves the machine', font(32, False), 76, FG),
+                  ('Try it in your browser, no glasses needed: vigohan95.github.io/riskdesk-g2', font(40, False, True), 60, ACC)])
     bridge_lines = [('同一套流程，中文语音', font(56, True, True), 90, ACC),
                     ('Same flow in Chinese: one sentence, both legs, 5 s undo', font(34, False), 60, DIM)]
 
