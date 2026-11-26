@@ -483,13 +483,33 @@ const LABEL = {
   en: { halve: (s: string) => `Halve ${s}`, close: (s: string) => `Close ${s}`, stop: (s: string) => `Stop-loss ${s}`, take: (s: string) => `Take-profit ${s}`, cancelAll: 'Cancel all orders', lang: '中文' },
   zh: { halve: (s: string) => `${s} 减半`, close: (s: string) => `${s} 全部平仓`, stop: (s: string) => `${s} 设止损`, take: (s: string) => `${s} 设止盈`, cancelAll: '撤全部挂单', lang: 'English' },
 }
-export function menuItems(syms: string[], lang: Lang): { itemID: number; itemName: string }[] {
+/** What the menu should offer first for one row, and how urgent that is (higher = earlier).
+ *  Same idea as a trader's checklist: about to hit the stop -> take half off; losing with no stop -> cap it;
+ *  no stop at all -> set one; protected and in profit with no target -> set the take-profit. */
+export const NEAR_STOP_PCT = 1
+export function suggest(r: Row | undefined): { kind: 'halve' | 'close' | 'stop' | 'take'; urgency: number } | null {
+  if (!r || !r.qty || r.upnl === null) return null
+  if (r.stop) {
+    const away = (Math.abs(r.price - r.stop) / r.price) * 100
+    if (away < NEAR_STOP_PCT) return { kind: 'halve', urgency: 3 }
+    if (!r.take && r.upnl > 0) return { kind: 'take', urgency: 1 }
+    return null
+  }
+  return { kind: 'stop', urgency: r.upnl < 0 ? 2 : 1 }
+}
+/** Menu order: the most urgent held symbol first and, inside each symbol, its suggested action first.
+ *  Item IDs do not depend on the order, so a click always means the same action whatever was shown. */
+export function menuItems(syms: string[], lang: Lang, rows: Row[] = []): { itemID: number; itemName: string }[] {
   const L = LABEL[lang]
   const items: { itemID: number; itemName: string }[] = []
   const per = syms.length <= 2 ? 4 : 2
-  syms.slice(0, 4).forEach((sym, i) => {
-    KINDS.slice(0, per).forEach((k, j) => items.push({ itemID: 10 * (i + 1) + j + 1, itemName: L[k](sym) }))
-  })
+  const tips = syms.map((sym) => suggest(rows.find((r) => r.sym === sym)))
+  const order = syms.slice(0, 4).map((sym, i) => ({ sym, i })).sort((a, b) => (tips[b.i]?.urgency ?? 0) - (tips[a.i]?.urgency ?? 0))
+  for (const { sym, i } of order) {
+    const tip = tips[i]?.kind
+    const kinds = tip ? [tip, ...KINDS.filter((k) => k !== tip)] : KINDS
+    kinds.slice(0, per).forEach((k) => items.push({ itemID: 10 * (i + 1) + KINDS.indexOf(k) + 1, itemName: L[k](sym) }))
+  }
   if (per === 4) items.push({ itemID: MENU_CANCEL_ALL, itemName: L.cancelAll })
   items.push({ itemID: MENU_LANG, itemName: L.lang })
   return items // <= 10 for any number of symbols (2 -> 10, 3 -> 7, 4 -> 9)

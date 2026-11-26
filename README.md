@@ -33,6 +33,12 @@ Screenshots are the simulator's 576x288 glasses buffer, drawn green-on-black at 
 Open the glasses' context menu on the positions page: **Halve / Close / Stop-loss / Take-profit** for BTC and ETH,
 **Cancel all orders**, and language: 10 items, the SDK maximum.
 
+The order follows your positions, so the first item is the thing to do now: a holding within 1% of its stop
+puts **Halve** first; a holding with no stop puts **Stop-loss** first (losing ones before winning ones); a protected
+winner with no target puts **Take-profit** first. The most urgent symbol comes first. Item IDs do not depend on the
+order, so a click always does what its label says, and a reorder is sent to the glasses at most every 20 s
+(each menu change redraws the page).
+
 1. **Confirm page** - what will be sold, at roughly which price (bid for a sell, ask for a buy), the fee, what you get,
    and the position before -> after. Every number comes from the backend; the glasses only lay it out.
    Tap = confirm, double-tap = back.

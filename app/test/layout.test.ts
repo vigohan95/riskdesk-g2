@@ -326,3 +326,37 @@ test('splitLine breaks at sentence punctuation, never inside 1,695, never leaves
   assert.ok(!/[,.;:!?]/.test(b[0]) && !/\d,$/.test(a), `${a} | ${b}`)
   assert.equal(`${a} ${b}`, en)
 })
+
+// ---- menu order follows the positions (Day 6) ----
+import { suggest, NEAR_STOP_PCT, type Row } from '../src/layout.ts'
+const row = (o: Partial<Row>): Row => ({ product: 'X-USD', sym: 'X', price: 100, chg24: 0, qty: 1, avg: 100, upnl: 0, stop: null, take: null, ...o })
+
+test('suggest: near stop -> halve, losing without stop -> stop, protected winner -> take', () => {
+  assert.equal(suggest(row({ qty: 0 })), null)
+  assert.deepEqual(suggest(row({ stop: 99.5, upnl: -3 })), { kind: 'halve', urgency: 3 })
+  assert.deepEqual(suggest(row({ stop: 100.4, qty: -1, upnl: -2 })), { kind: 'halve', urgency: 3 }) // short, stop above
+  assert.deepEqual(suggest(row({ upnl: -5 })), { kind: 'stop', urgency: 2 })
+  assert.deepEqual(suggest(row({ upnl: 5 })), { kind: 'stop', urgency: 1 })
+  assert.deepEqual(suggest(row({ stop: 90, upnl: 5 })), { kind: 'take', urgency: 1 })
+  assert.equal(suggest(row({ stop: 90, take: 120, upnl: 5 })), null)
+  assert.equal(suggest(row({ stop: 100 * (1 - NEAR_STOP_PCT / 100) - 0.01, upnl: -1 })), null) // just outside 1 %: no panic
+})
+
+test('menu: most urgent symbol first, its suggested action first, same IDs as the fixed order', () => {
+  const rows = [row({ sym: 'BTC', stop: 50_000, price: 60_000, upnl: 40 }), row({ sym: 'ETH', price: 1700, avg: 1800, upnl: -37, stop: 1690 })]
+  for (const lang of ['en', 'zh'] as const) {
+    const m = menuItems(['BTC', 'ETH'], lang, rows)
+    assert.equal(m.length, 10)
+    assert.deepEqual(m.slice(0, 4).map((x) => x.itemID), [21, 22, 23, 24]) // ETH 0.6 % from its stop: Halve ETH first
+    assert.deepEqual(m.slice(4, 8).map((x) => x.itemID), [14, 11, 12, 13]) // BTC protected, in profit, no target: Take-profit first
+    assert.deepEqual(new Set(m.map((x) => x.itemID)), new Set(menuItems(['BTC', 'ETH'], lang).map((x) => x.itemID)))
+    for (const x of m) if (x.itemID !== MENU_LANG) assert.ok(menuAction(x.itemID, ['BTC', 'ETH']))
+  }
+  assert.equal(menuItems(['BTC', 'ETH'], 'en', rows)[0].itemName, 'Halve ETH')
+  // Losing with no stop: Stop-loss comes first; with three symbols (two actions each) it still makes the cut.
+  const three = menuItems(['BTC', 'ETH', 'SOL'], 'zh', [row({ sym: 'SOL', upnl: -4 })])
+  assert.deepEqual(three.slice(0, 2).map((x) => [x.itemID, x.itemName]), [[33, 'SOL 设止损'], [31, 'SOL 减半']])
+  assert.deepEqual(menuAction(33, ['BTC', 'ETH', 'SOL']), { kind: 'stop', sym: 'SOL' })
+  // No positions: the fixed order.
+  assert.deepEqual(menuItems(['BTC', 'ETH'], 'en', []).map((x) => x.itemID), menuItems(['BTC', 'ETH'], 'en').map((x) => x.itemID))
+})

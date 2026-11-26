@@ -38,7 +38,17 @@ const toProp = (t: Text) =>
   })
 
 const bridge = await waitForEvenAppBridge()
-const menu = () => new MenuContainerProperty({ menuItems: menuItems(SYMS, lang).map((m) => new MenuItemProperty(m)) })
+let latest: DeskState | null = null
+const menuNow = () => menuItems(SYMS, lang, latest?.rows ?? [])
+const menuKeyOf = () => menuNow().map((m) => m.itemID).join(',')
+const menu = () => { shownMenu = menuKeyOf(); if (settled()) menuAt = Date.now(); return new MenuContainerProperty({ menuItems: menuNow().map((m) => new MenuItemProperty(m)) }) }
+/** Menu order last sent (item IDs). It follows the positions (suggested action first), but a rebuild
+ *  redraws the whole page, so a changed order is sent at most every MENU_MIN_MS. */
+// Until the feed is live and every holding is priced, the order is provisional: no throttle yet.
+const settled = () => latest?.feed.status === 'live' && latest.rows.length > 0 && latest.rows.every((r) => !r.qty || r.upnl !== null)
+let shownMenu = ''
+let menuAt = 0
+const MENU_MIN_MS = 20_000
 let shown: Page = pnlPage(null, lang)
 let shownKind: PageKind = 'pnl'
 let shownKey = 'pnl'
@@ -46,7 +56,6 @@ let shownLang: Lang = lang
 await bridge.createStartUpPageContainer(new CreateStartUpPageContainer({ containerTotalNum: shown.texts.length, textObject: shown.texts.map(toProp), menuObject: menu() }))
 console.log('RISKDESK_READY', SERVER)
 
-let latest: DeskState | null = null
 let offline = false
 /** A refusal that never became a server action (e.g. "no ETH position"), shown on the result page. */
 let note: { text: string; until: number } | null = null
@@ -108,7 +117,8 @@ async function draw() {
       const { kind, page: next, chart, key } = wanted()
       const bad = overflows(next)
       if (bad.length) console.warn('LAYOUT_OVERFLOW', bad.join(' | '))
-      if (key !== shownKey || (kind === 'pnl' && lang !== shownLang)) {
+      const menuMoved = kind === 'pnl' && menuKeyOf() !== shownMenu && Date.now() - menuAt > MENU_MIN_MS
+      if (key !== shownKey || (kind === 'pnl' && lang !== shownLang) || menuMoved) {
         // Different page (or the menu labels changed language): rebuild. Only the PnL page carries the menu,
         // so the menu cannot open on top of a confirm or undo page.
         await bridge.rebuildPageContainer(new RebuildPageContainer({
