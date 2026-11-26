@@ -4,6 +4,10 @@ See your crypto risk on the glasses, act with one tap, and get 5 seconds to take
 
 Heads Up: Even Realities G2 hackathon, track 03 Exchanges & Stocks (Coinbase).
 
+**Try it in your browser, nothing to install: https://vigohan95.github.io/riskdesk-g2/**
+The page runs the unchanged glasses app and the unchanged desk on live Coinbase prices (orders there are paper fills;
+voice is typed and goes through the same parser and safety checks). Build it yourself with `cd app && npm run web:build`.
+
 ![PnL page, live Coinbase prices](docs/shots/day1_pnl_en.png)
 
 ## What works today (Day 1-4a)
