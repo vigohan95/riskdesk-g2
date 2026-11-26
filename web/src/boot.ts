@@ -32,7 +32,11 @@ function store<T>(name: string, empty: T): Store<T> {
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
-const status = (s: string) => { $('status').textContent = s }
+let base = ''
+let hintTimer = 0
+const status = (s: string) => { base = s; clearTimeout(hintTimer); $('status').textContent = s }
+/** A one-off hint under the lens that falls back to the steady status line after a few seconds. */
+const hint = (s: string) => { clearTimeout(hintTimer); $('status').textContent = s; hintTimer = window.setTimeout(() => { $('status').textContent = base }, 5000) }
 
 let resolveLens!: (l: Lens) => void
 export const lensReady = new Promise<Lens>((r) => { resolveLens = r })
@@ -58,7 +62,15 @@ async function boot() {
   resolveLens(lens)
   wireControls(lens)
   await import('../../app/src/main.ts')
-  status('Live. Prices are the Coinbase public feed; orders are paper fills at the live bid/ask.')
+  // Say "live" only once the WebSocket feed is: until then the lens shows "feed connecting" and taps have no risk pages.
+  const LIVE = 'Live. Prices are the Coinbase public feed; orders are paper fills at the live bid/ask.'
+  const feedLine = () => {
+    const f = (desk.state() as any).feed?.status
+    status(f === 'live' ? LIVE : f === 'stale' ? 'The Coinbase feed has gone quiet: prices are dimmed and marked old until it comes back.' : 'Connecting to the live Coinbase feed...')
+  }
+  let lastFeed = ''
+  desk.onPush((s: any) => { const f = s?.feed?.status ?? ''; if (f !== lastFeed) { lastFeed = f; feedLine() } })
+  feedLine()
 }
 
 // ---------- the backend's HTTP surface, in-process ----------
@@ -108,7 +120,7 @@ function wireControls(lens: Lens) {
   $('b-double').onclick = () => lens.doubleTap()
   $('b-up').onclick = () => lens.scroll(-1)
   $('b-down').onclick = () => lens.scroll(1)
-  menuBtn.onclick = () => { if (lens.menuOpen) lens.closeMenu(); else if (!lens.openMenu()) status('The context menu exists only on the positions page (double tap / tap back to it).'); syncMenu() }
+  menuBtn.onclick = () => { if (lens.menuOpen) lens.closeMenu(); else if (!lens.openMenu()) hint('The context menu exists only on the positions page (double tap / tap back to it).'); syncMenu() }
   $('lens').onclick = () => lens.tap()
   $('lens').ondblclick = (e) => { e.preventDefault(); lens.doubleTap() }
 
@@ -124,7 +136,7 @@ function wireControls(lens: Lens) {
       lens.longPress()
       // the app opens the mic once the backend has started a recording
       for (let i = 0; i < 40 && !lens.micOn; i++) await sleep(50)
-      if (!lens.micOn) { status('Hold to talk works from the positions, risk or notice page.'); lens.release(); return }
+      if (!lens.micOn) { hint('Hold to talk works from the positions, risk or notice page: tap or double tap back to it first.'); lens.release(); return }
       for (let i = 0; i < 6; i++) { lens.micChunk(SILENCE); await sleep(100) }
       await sleep(350) // the app posts audio every 300 ms
       lens.release()

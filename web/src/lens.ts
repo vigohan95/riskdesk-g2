@@ -2,9 +2,9 @@
 // It draws the same text / image containers the glasses would get onto a 576x288 green-on-black "lens", and turns
 // the buttons under it into the events the glasses would send (tap, double tap, long press, context menu).
 //
-// Text is laid out glyph by glyph at the x positions the firmware font gives (pretext's per-glyph advance widths),
-// so the space-padded right alignment the app computes for the real glasses lines up here too. The browser font is
-// not the firmware font, so glyph shapes differ a little; the simulator screenshots in the README are the real buffer.
+// Text runs are placed at the x positions the firmware font gives (pretext's advance widths) and stretched to the
+// firmware width of the run, so the space-padded right alignment the app computes for the real glasses lines up here
+// too. The browser font is not the firmware font, so glyph shapes differ a little; the README screenshots are the real buffer.
 
 import { getTextWidth } from '@evenrealities/pretext'
 
@@ -18,6 +18,23 @@ type Box = { id: number; name: string; x: number; y: number; w: number; h: numbe
 type Img = { id: number; name: string; x: number; y: number; w: number; h: number; url: string | null }
 type MenuItem = { itemID: number; itemName: string }
 type Listener = (e: any) => void
+
+/** Browser width of a run in the lens font (cached), to stretch it to the firmware width. */
+const LENS_FONT = '20px "Segoe UI", system-ui, sans-serif'
+let ctx: CanvasRenderingContext2D | null = null
+const widths = new Map<string, number>()
+function measure(t: string) {
+  let w = widths.get(t)
+  if (w === undefined) {
+    ctx ??= document.createElement('canvas').getContext('2d')
+    if (!ctx) return 0
+    ctx.font = LENS_FONT
+    w = ctx.measureText(t).width
+    if (widths.size > 4000) widths.clear()
+    widths.set(t, w)
+  }
+  return w
+}
 
 const num = (v: unknown, d = 0) => (typeof v === 'number' && Number.isFinite(v) ? v : d)
 
@@ -101,13 +118,19 @@ export class Lens {
         (b.border ? `border:1px solid ${GREEN[2]};border-radius:4px;` : '') + `color:${c};overflow:hidden`
       const inset = b.pad + (b.border ? 1 : 0)
       b.content.split('\n').forEach((line, row) => {
-        // one span per glyph at the firmware advance -> columns padded with spaces line up as on the glasses
-        for (let k = 0; k < line.length; k++) {
-          const ch = line[k]
-          if (ch === ' ') continue
+        // One span per run of text, placed at the firmware x and stretched to the firmware width of that run, so the
+        // space-padded columns the app computes for the glasses line up here too, without per-glyph kerning gaps.
+        // Runs break at 2+ spaces (column padding); single spaces inside a run stay ordinary word spaces.
+        for (const m of line.matchAll(/\S+(?: \S+)*/g)) {
+          const k = m.index ?? 0
+          const run = m[0]
+          const fw = getTextWidth(run)
+          const bw = measure(run)
           const s = document.createElement('span')
-          s.textContent = ch
-          s.style.cssText = `position:absolute;left:${inset - (b.border ? 1 : 0) + getTextWidth(line.slice(0, k))}px;top:${inset - (b.border ? 1 : 0) + row * LINE_H}px;line-height:${LINE_H}px`
+          s.textContent = run
+          s.style.cssText = `position:absolute;white-space:pre;left:${inset - (b.border ? 1 : 0) + getTextWidth(line.slice(0, k))}px;` +
+            `top:${inset - (b.border ? 1 : 0) + row * LINE_H}px;line-height:${LINE_H}px;transform-origin:0 0;` +
+            (bw > 0 && Math.abs(fw / bw - 1) > 0.01 ? `transform:scaleX(${(fw / bw).toFixed(3)})` : '')
           box.append(s)
         }
       })

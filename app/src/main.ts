@@ -228,7 +228,8 @@ connect()
 //   confirm page tap = confirm (arms the 5 s undo window), double-tap = back
 //   undo page    tap = undo
 //   result page  tap = back
-//   PnL / notice long press = hold to talk (release to send); notice page tap = remove the alert just set, or back
+//   PnL / notice long press = hold to talk (release to send); notice page tap = remove the alert just set, or back;
+//   result / notice double-tap = back (an alert just set is kept)
 bridge.onEvenHubEvent((e) => {
   if (e.audioEvent) { if (rec) rec.buf.push(toBytes(e.audioEvent.audioPcm)); return }
   const item = e.menuItemClickEvent?.itemID
@@ -269,6 +270,11 @@ bridge.onEvenHubEvent((e) => {
     if (kind === 'confirm' && v) post('/api/undo', { id: v.id }).then(() => post('/api/dismiss', { id: v.id })).catch(refuse)
     else if (kind === 'pnl') toggleLang()
     else if (kind === 'risk') { riskIdx = null; void draw() }
+    // double-tap = back everywhere else too: leave a result, or keep the alert a notice offers to remove
+    else if (kind === 'result') {
+      if (note) { note = null; void draw() }
+      else if (v) post('/api/dismiss', { id: v.id }).catch(refuse)
+    } else if (kind === 'notice' && latest?.notice) post('/api/notice/dismiss', { id: latest.notice.id }).catch(refuse)
   }
 })
 

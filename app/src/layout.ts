@@ -405,7 +405,7 @@ const V = {
     listenFoot: 'release = done',
     thinkFoot: 'on this machine, audio never leaves it',
     heard: (h: string) => `heard "${h}"`,
-    undoFoot: 'tap = remove this alert',
+    undoFoot: 'tap = remove this alert · double-tap = keep',
     backFoot: 'tap = back to positions',
   },
   zh: {
@@ -417,7 +417,7 @@ const V = {
     listenFoot: '松开 = 说完了',
     thinkFoot: '本机识别，音频不出本机',
     heard: (h: string) => `听到「${h}」`,
-    undoFoot: '单击 = 撤销这个提醒',
+    undoFoot: '单击 = 撤销这个提醒 · 双击 = 保留',
     backFoot: '单击 = 回到持仓',
   },
 }
