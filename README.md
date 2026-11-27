@@ -10,7 +10,7 @@ voice is typed and goes through the same parser and safety checks). Build it you
 
 ![PnL page, live Coinbase prices](docs/shots/day1_pnl_en.png)
 
-## What works today (Day 1-4a)
+## What works (built 2026-11-23 to 11-27)
 
 - **Live Coinbase prices** over the public Advanced Trade WebSocket (`ticker` + `heartbeats`, no API key).
   The backend sends the glasses at most one update per second, and only when a number on screen would change.
@@ -279,7 +279,7 @@ npx evenhub-simulator http://127.0.0.1:5173/
 Voice in the simulator (no mic): start the backend with `DEV_INJECT=1`, long-press in the simulator, then
 `curl -X POST --data-binary @command.wav http://127.0.0.1:8787/api/dev/inject` (16 kHz mono 16-bit WAV) and release.
 
-Tests: `cd server && npm test` (ledger, feed, actions, resting orders, voice parser and plans, risk numbers: 66 tests) and `cd app && npm test` (layout, pages, menu, voice pages, bracket pages, risk page and chart: 32 tests).
+Tests: `cd server && npm test` (ledger, feed, actions, resting orders, voice parser and plans, risk numbers, menu order, receipts: 67 tests) and `cd app && npm test` (layout, pages, menu, voice pages, bracket pages, risk page and chart: 35 tests). Checked on 2026-11-27 from a fresh clone (Node 24, npm 11): both suites pass, `npm run web:build` builds, the backend goes live on Coinbase within seconds.
 
 ### Install on a phone (.ehpk)
 
@@ -331,7 +331,7 @@ none of that pre-hackathon spike code is used here. Written with AI assistance (
 1. ~~Confirm page + 5-second undo + sandbox orders for halve / close~~ (done Day 2); ~~cancel all, stop, take-profit~~ (Day 2b); ~~price alerts~~ (Day 3b).
 2. Hold-to-talk voice commands (local faster-whisper) that only ever produce a confirm page: ~~parser + 108-clip regression~~ (Day 3a); ~~mic -> STT service -> confirm page, price sanity checks, alerts~~ (Day 3b).
 3. ~~Risk page: distance to stop, money at stop, 24 h chart with levels~~ (Day 4a); futures expiry / funding only if a futures position is added.
-4. Demo video.
+4. ~~Demo video~~ (Release v0.1.0, English and Chinese); ~~browser demo~~ (GitHub Pages); ~~menu ordered by what needs doing now, after-action receipts~~.
 
 ## License
 
