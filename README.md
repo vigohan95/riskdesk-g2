@@ -250,7 +250,7 @@ gesture being pressed and a caption, and puts each voice clip on the audio track
 python demo/record.py --story en --out demo/run-en      # or --story zh (start the simulator with &lang=zh)
 python demo/compose.py demo/run-en demo/riskdesk-en.mp4 # needs Pillow + ffmpeg
 # the submitted cut: hold the risk page 2.5 s longer, then the bracket order again in the other language
-python demo/compose.py demo/run-en demo/riskdesk-en.mp4 --hold 41:2.5 --append demo/run-zh:15.8:35.6
+python demo/compose.py demo/run-en demo/riskdesk-en.mp4 --hold 41:2.5 --append demo/run-zh:15.8:38.0
 ```
 
 `--hold` only repeats a simulator frame (never inside a voice clip); `--append` plays a stretch of a second run behind a
@@ -258,8 +258,8 @@ short title card. Nothing is drawn onto the glasses picture.
 
 Story (about 93 s of glasses time): PnL page -> tap -> BTC risk page with no stop -> hold and say "Bitcoin stop loss
 fifty-eight thousand, take profit sixty-four thousand" -> one confirm page for both legs -> tap -> 5 s undo window ->
-placed -> the risk page now draws S and T on the 24h chart -> menu, whose first item is the suggested action
-(BTC is bracketed, ETH has no stop, so "Stop-loss ETH" is on top) -> tap, confirm: ETH stop placed -> menu again,
+placed, with the receipt line (worst case if the stop hits) -> the risk page now draws S and T on the 24h chart -> menu, whose first item is the suggested action
+(BTC is bracketed, ETH has no stop, so "Stop-loss ETH" is on top) -> tap, confirm: ETH stop placed, receipt "no floor -> -25 USD" -> menu again,
 re-ordered -> halve BTC -> confirm -> tap again within 5 s: undone, nothing sent -> "ETH stop at one sixty-five" refused as a misheard magnitude -> "Buy one bitcoin" refused
 (voice never opens positions). The voice clips in `demo/clips/` are Windows TTS, 16 kHz mono, because the simulator
 has no microphone; everything after the mic is the real path, including local Whisper.
