@@ -360,3 +360,25 @@ test('menu: most urgent symbol first, its suggested action first, same IDs as th
   // No positions: the fixed order.
   assert.deepEqual(menuItems(['BTC', 'ETH'], 'en', []).map((x) => x.itemID), menuItems(['BTC', 'ETH'], 'en').map((x) => x.itemID))
 })
+
+test('result receipt: downside before -> after, fits untruncated in en + zh', async () => {
+  const { receiptLine } = await import('../src/layout.ts')
+  const { getTextWidth } = await import('@evenrealities/pretext')
+  const filled: ActionView = { ...act, status: 'filled', fillPrice: 61240.1 }
+  const cases: [ActionView, RegExp, RegExp][] = [
+    [{ ...filled, receipt: { metric: 'stop', stop: 59780, before: -29.05, after: -14.52 } }, /^If stop 59,780 hits: −29\.05 → −14\.52 USD$/, /^打到止损 59,780 再亏 −29\.05 → −14\.52 USD$/],
+    [{ ...filled, kind: 'stop', status: 'placed', trigger: 1650.25, receipt: { metric: 'stop', stop: 1650.25, before: null, after: -1234.56 } }, /no floor → −1,234\.56 USD$/, /没有底 → −1,234\.56 USD$/],
+    [{ ...filled, receipt: { metric: 'swing', stop: null, before: 12345.67, after: 6172.83 } }, /^No stop · 24h range on the position 12,345\.67 → 6,172\.83 USD$/, /^没止损 · 24h 振幅折合仓位 12,345\.67 → 6,172\.83 USD$/],
+  ]
+  for (const [v, en, zh] of cases) {
+    for (const [lang, re] of [['en', en], ['zh', zh]] as const) {
+      const line = receiptLine(v, lang)
+      assert.match(line, re)
+      assert.ok(getTextWidth(line) <= 576 - 16, `${lang} "${line}" ${getTextWidth(line)}px`)
+      const p = resultPage(v, lang)
+      assert.equal(p.texts.find((t) => t.name === 'receipt')!.content, line)
+      assert.deepEqual(overflows(p), [])
+    }
+  }
+  assert.equal(receiptLine({ ...act, receipt: { metric: 'stop', stop: 1, before: -1, after: 0 } }, 'en'), '', 'only on a finished action')
+})

@@ -65,6 +65,8 @@ export type ActionView = {
   auto?: boolean
   heard?: string | null
   far?: boolean
+  /** filled / placed: the downside before -> after, from the server (server/src/state.ts receipt()) */
+  receipt?: { metric: 'stop' | 'swing'; stop: number | null; before: number | null; after: number } | null
 }
 export type ActionKind = 'halve' | 'close' | 'stop' | 'take' | 'bracket' | 'cancelAll'
 export type PageKind = 'pnl' | 'confirm' | 'undo' | 'result' | 'voice' | 'notice' | 'risk'
@@ -376,6 +378,18 @@ export function undoPage(v: ActionView, lang: Lang): Page {
   }
 }
 
+/** "If stop 1,650 hits: −24.10 → −12.05 USD" — the downside the action just changed. */
+export function receiptLine(v: ActionView | null, lang: Lang): string {
+  const r = v?.receipt
+  if (!r || (v!.status !== 'filled' && v!.status !== 'placed')) return ''
+  const m = (x: number) => fmtNum(x, 2)
+  if (r.metric === 'swing') {
+    return lang === 'zh' ? `没止损 · 24h 振幅折合仓位 ${m(r.before!)} → ${m(r.after)} USD` : `No stop · 24h range on the position ${m(r.before!)} → ${m(r.after)} USD`
+  }
+  const before = r.before === null ? (lang === 'zh' ? '没有底' : 'no floor') : m(r.before)
+  return lang === 'zh' ? `打到止损 ${pxs(r.stop!)} 再亏 ${before} → ${m(r.after)} USD` : `If stop ${pxs(r.stop!)} hits: ${before} → ${m(r.after)} USD`
+}
+
 export function resultPage(v: ActionView | null, lang: Lang, note?: string): Page {
   const t = A[lang]
   let line = note ?? ''
@@ -390,6 +404,7 @@ export function resultPage(v: ActionView | null, lang: Lang, note?: string): Pag
       box(1, 'title', 0, line, 4, { h: boxH(1) + 2, border: true }),
       box(2, 'detail', 54, detail, 2),
       box(4, 'venue', 98, venue, 2),
+      box(5, 'receipt', 142, receiptLine(v, lang), 4),
       box(3, 'foot', FOOTER_Y, t.resultFoot, 3, { capture: true }),
     ],
   }

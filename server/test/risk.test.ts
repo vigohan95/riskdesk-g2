@@ -91,3 +91,28 @@ test('SeriesCache: one fetch per refresh window, failure keeps the old series', 
   assert.equal(calls, 2)
   assert.equal(c.get('BTC-USD').length, 1)
 })
+
+test('after-action receipt: halve under a stop halves the loss-to-stop; a new stop turns no floor into a number', async () => {
+  const { receipt, toStopLoss } = await import('../src/state.ts')
+  const base = { id: 'x', createdAt: 0, side: 'SELL' as const, product: 'ETH-USD', estPrice: 1700, estFee: 0, estNet: 0, refPrice: 1700, replaces: null, affected: null, auto: false, heard: null, far: false, take: null }
+  const ctx = { bid: 1700, ask: 1701, stop: 1650, feeRate: 0.006, series: [] as any[] }
+  // long 0.75 ETH, stop 1650, exit at bid 1700: lose 0.75*50 minus the smaller exit fee at the lower price
+  const full = toStopLoss(0.75, 1650, 1700, 0.006)
+  assert.ok(Math.abs(full - (0.75 * -50 + 0.75 * 0.006 * 50)) < 1e-9)
+  const halve = receipt({ status: 'filled', p: { ...base, kind: 'halve', qty: 0.375, exposureBefore: 0.75, exposureAfter: 0.375, trigger: null } as any, fill: {} as any, orderId: 'o' }, ctx)!
+  assert.equal(halve.metric, 'stop')
+  assert.ok(Math.abs(halve.after - halve.before! / 2) < 1e-9)
+  const stop = receipt({ status: 'placed', p: { ...base, kind: 'stop', qty: 0.75, exposureBefore: 0.75, exposureAfter: 0, trigger: 1666 } as any, affected: 1 }, { ...ctx, stop: 1666 })!
+  assert.equal(stop.before, null)
+  assert.ok(stop.after < 0)
+  const moved = receipt({ status: 'placed', p: { ...base, kind: 'stop', qty: 0.75, exposureBefore: 0.75, exposureAfter: 0, trigger: 1680, replaces: 1650 } as any, affected: 1 }, { ...ctx, stop: 1680 })!
+  assert.ok(moved.before! < moved.after, 'tighter stop = smaller loss')
+  // no stop: 24 h range on the size
+  const sw = receipt({ status: 'filled', p: { ...base, kind: 'halve', qty: 0.375, exposureBefore: 0.75, exposureAfter: 0.375, trigger: null } as any, fill: {} as any, orderId: 'o' },
+    { ...ctx, stop: null, series: [{ t: 0, low: 1600, high: 1720, close: 1700 }] })!
+  assert.deepEqual([sw.metric, sw.before, sw.after], ['swing', 90, 45])
+  // a resting stop that fired by itself, a take-profit, an unfinished action: no receipt
+  assert.equal(receipt({ status: 'filled', p: { ...base, kind: 'stop', auto: true, qty: 0.75, exposureBefore: 0.75, exposureAfter: 0, trigger: 1650 } as any, fill: {} as any, orderId: 'o' }, ctx), null)
+  assert.equal(receipt({ status: 'placed', p: { ...base, kind: 'take', qty: 0.75, exposureBefore: 0.75, exposureAfter: 0, trigger: 1800 } as any, affected: 1 }, ctx), null)
+  assert.equal(receipt({ status: 'armed', p: { ...base, kind: 'halve', qty: 0.375, exposureBefore: 0.75, exposureAfter: 0.375, trigger: null } as any, fireAt: 1 }, ctx), null)
+})

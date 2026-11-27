@@ -46,6 +46,10 @@ order, so a click always does what its label says, and a reorder is sent to the 
 3. **Result page** - after the window one Coinbase Advanced Trade *Create Order* request goes out
    (public sandbox by default) with `client_order_id` = the action id, so a double tap or a retry can never create two orders.
    The fill is booked in the paper ledger at the bid/ask *at execution time*, and the page says it was a sandbox order.
+   The last line is an **after-action receipt**: the same downside number before -> after, at the live exit price.
+   Under a stop it is the money lost if the stop fires (`If stop 60,350 hits: −24.01 → −12.00 USD` after a halve;
+   `no floor → −22.68 USD` after setting a first stop); with no stop it is the last 24 h range on the position's size
+   (`No stop · 24h range on the position 42.62 → 21.31 USD`). Spot has no liquidation price, so this is the number an action changes.
 
 Safety checks at confirm time: a preview older than 30 s, or whose price moved more than 1%, is refused
 ("look again") instead of executed. Only one action can be armed at a time. The context menu exists only on the
