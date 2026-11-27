@@ -120,6 +120,9 @@ L = {
         menu2=('The menu re-orders itself. Any action can still be taken back:', ''),
         undo=('{act}, confirm... then tap again within 5 seconds.', 'Undone: nothing reached the exchange.'),
         act=dict(halve='Halve {s}', close='Close {s}', stop='Stop-loss {s}', take='Take-profit {s}'),
+        again=('This time let it through: {act}.', ''),
+        filled=('Done. The receipt shows what it changed:',
+                'same stop, half the size, so the loss if the stop hits is cut in half.'),
         mag=('Misheard numbers are refused, never guessed:', '"ETH stop at one sixty-five" is not an ETH price.'),
         buy=('Voice never opens positions.', '"Buy one bitcoin" is refused and the page says why.'),
         clip_br='v_br_en', clip_mag='v_mag_en', clip_buy='d04',
@@ -139,6 +142,8 @@ L = {
         menu2=('菜单会跟着持仓重新排序。任何动作都还能撤回：', ''),
         undo=('{act}，确认……5 秒内再点一下', '已撤回：什么都没发到交易所。'),
         act=dict(halve='{s} 减半', close='{s} 全部平仓', stop='{s} 设止损', take='{s} 设止盈'),
+        again=('这次不撤回：{act}。', ''),
+        filled=('成交。回执写清这一下改变了什么：', '止损不变、仓位减半，止损打到时的亏损也跟着减半。'),
         mag=('听错的数字直接拒绝，不瞎猜：', '「以太坊止损一百六十五」不是以太坊的价格。'),
         buy=('语音永远不开新仓。', '「买一个比特币」被拒，并说明原因。'),
         clip_br='v_br_zh', clip_mag='v_mag_zh', clip_buy='v_buy_zh',
@@ -185,6 +190,17 @@ gesture('click', L['tap']); hold(1.6)
 gesture('click', L['tap']); hold(0.6)
 caption(L['undo'][0].format(act=act), L['undo'][1])
 wait_for(lambda s: not s['action'], 12); hold(1.0)
+# the same action again, let through: the result page carries the receipt (loss-to-stop before -> after)
+gesture('context_menu', L['menu_g']); hold(1.5)
+gesture('click', L['tap'])
+p2 = wait_for(lambda s: s['action'] and s['action']['status'] == 'proposed', 8)['action']
+assert (p2['kind'], p2['sym']) == (p['kind'], p['sym']) == ('halve', 'BTC'), (p, p2)
+hold(0.4); caption(L['again'][0].format(act=act), ''); hold(1.8)
+gesture('click', L['tap'])
+s = wait_for(lambda s: s['action'] and s['action']['status'] == 'filled', 15)
+assert s['action'].get('receipt'), s['action']
+caption(*L['filled'])
+wait_for(lambda s: not s['action'], 15); hold(0.8)
 caption(*L['mag'])
 s = say(L['clip_mag'], L['hold'])
 hold(3.5)
